@@ -1,0 +1,9 @@
+{
+    "error": "Extra data: line 10 column 2 (char 175)",
+    "standbyConfig": {
+        "display": "off",
+        "lights": "off",
+        "minecraft": "stop",
+        "fan": "auto"
+    }
+}

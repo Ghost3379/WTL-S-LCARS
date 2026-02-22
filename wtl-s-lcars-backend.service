@@ -1,0 +1,23 @@
+[Unit]
+Description=WTl-S-LCARS Backend API Server
+After=network.target
+
+[Service]
+Type=simple
+User=admin
+WorkingDirectory=/var/www/html/backend
+Environment="PATH=/var/www/html/backend/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="BAMBU_PRINTER_IP=192.168.1.100"
+Environment="BAMBU_ACCESS_CODE="
+Environment="BAMBU_PRINTER_SERIAL="
+Environment="NAVIDROME_URL=http://localhost:4533"
+Environment="NAVIDROME_USERNAME=your_username"
+Environment="NAVIDROME_PASSWORD=your_password"
+ExecStart=/var/www/html/backend/venv/bin/python3 /var/www/html/backend/app.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

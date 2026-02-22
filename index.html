@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<title>WTL-S-LCARS | Wayne Tech Lab - Lab Core Access Retrieval System</title>
+	<meta name="description" content="Wayne Tech Lab - Lab Core Access Retrieval System (LCARS) Interface">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+	<meta name="format-detection" content="telephone=no">
+	<meta name="format-detection" content="date=no">
+	<link rel="icon" type="image/png" href="assets/WT-website-logo.png">
+	<link rel="shortcut icon" type="image/png" href="assets/WT-website-logo.png">
+	<link rel="stylesheet" type="text/css" href="css/classic.css?v=8">
+</head>
+
+<body>
+	<!-- Main Dashboard -->
+	<section id="main-dashboard" class="wrap-standard">
+		<div class="wrap">
+			<div class="left-frame-top">
+				<button onclick="playSoundAndRedirect('audio2', '#')" class="panel-1-button"><span
+						class="hop">WTl</span>-S-LCARS</button>
+				<div class="panel-2">SYSTEM</div>
+			</div>
+			<div class="right-frame-top">
+				<div class="data-cascade-button-group">
+					<div class="data-cascade-wrapper" id="default">
+						<!-- Data cascade columns will be populated dynamically -->
+					</div>
+					<nav>
+						<button onclick="switchSection('dashboard')" id="nav-dashboard">dashboard</button>
+						<button onclick="switchSection('projects')" id="nav-projects">projects</button>
+						<button onclick="switchSection('apps')" id="nav-apps">apps</button>
+						<button onclick="switchSection('system')" id="nav-system">system</button>
+						<button onclick="switchSection('pironman')" id="nav-pironman">pironman</button>
+						<button onclick="switchSection('servers')" id="nav-servers">servers</button>
+						<button onclick="switchSection('music')" id="nav-music">music</button>
+						<button onclick="switchSection('network')" id="nav-network">network</button>
+						<button onclick="switchSection('settings')" id="nav-settings">settings</button>
+					</nav>
+				</div>
+				<div class="bar-panel first-bar-panel">
+					<div class="bar-1"></div>
+					<div class="bar-2"></div>
+					<div class="bar-3"></div>
+					<div class="bar-4"></div>
+					<div class="bar-5"></div>
+				</div>
+			</div>
+		</div>
+		<div class="wrap" id="gap">
+			<div class="left-frame">
+				<button onclick="topFunction(); playSoundAndRedirect('audio4', '#')" id="topBtn"><span
+						class="hop">screen</span> top</button>
+				<div>
+					<div class="panel-3">STATUS</div>
+					<div class="panel-4">MONITOR</div>
+					<div class="panel-5" id="control-panel" style="cursor: pointer;">CONTROL</div>
+				</div>
+			</div>
+			<div class="right-frame">
+				<div class="bar-panel">
+					<div class="bar-6"></div>
+					<div class="bar-7"></div>
+					<div class="bar-8"></div>
+					<div class="bar-9"></div>
+					<div class="bar-10"></div>
+				</div>
+
+				<!-- Dashboard Section -->
+				<main id="section-dashboard" class="content-section active">
+					<h1>System Status</h1>
+
+					<!-- Time & Date Display (Large, Always Visible) -->
+					<div class="lcars-text-bar">
+						<h2>System Time</h2>
+					</div>
+					<div style="margin: 20px 0; text-align: center;">
+						<p class="flush uppercase go-big font-golden-orange dashboard-time-display" id="dashboard-time">
+							00:00:00</p>
+						<p class="flush uppercase font-golden-orange dashboard-date-display" id="dashboard-date">--</p>
+						<p class="flush" id="time-status-text" style="font-size: 1rem; margin-top: 10px;"><span
+								class="font-green">TIME STATUS:</span> <span id="time-status-value">OK</span></p>
+					</div>
+
+					<div class="status-grid">
+						<div class="status-card" style="padding: 20px; border: 3px solid var(--orange);">
+							<div class="lcars-text-bar">
+								<h3>ACTIVE PROJECTS</h3>
+							</div>
+							<p class="flush uppercase go-big font-golden-orange" id="active-projects">0</p>
+						</div>
+						<div class="status-card" style="padding: 20px; border: 3px solid var(--orange);">
+							<div class="lcars-text-bar">
+								<h3>SYSTEM UPTIME</h3>
+							</div>
+							<p class="flush uppercase go-big font-golden-orange" id="system-uptime">00:00:00</p>
+						</div>
+						<div class="status-card" style="padding: 20px; border: 3px solid var(--orange);">
+							<div class="lcars-text-bar">
+								<h3>CPU TEMP</h3>
+							</div>
+							<p class="flush uppercase go-big font-golden-orange" id="system-temp">--&deg;C</p>
+						</div>
+						<div class="status-card" style="padding: 20px; border: 3px solid var(--orange);">
+							<div class="lcars-text-bar">
+								<h3>CPU LOAD</h3>
+							</div>
+							<p class="flush uppercase go-big font-golden-orange" id="cpu-load">--%</p>
+						</div>
+						<div class="status-card" style="padding: 20px; border: 3px solid var(--orange);">
+							<div class="lcars-text-bar">
+								<h3>RAM USAGE</h3>
+							</div>
+							<p class="flush uppercase go-big font-golden-orange" id="ram-usage">--%</p>
+						</div>
+						<div class="status-card" style="padding: 20px; border: 3px solid var(--orange);">
+							<div class="lcars-text-bar">
+								<h3>SERVER STATUS</h3>
+							</div>
+							<div style="margin-top: 15px; text-align: left; line-height: 1.8;">
+								<p style="font-size: 0.9em; margin: 10px 0;"><span class="font-green">MINECRAFT:</span>
+									<span class="font-golden-orange uppercase" id="dashboard-mc-status">--</span>
+								</p>
+								<p style="font-size: 0.9em; margin: 10px 0;"><span class="font-green">NAVIDROME:</span>
+									<span class="font-golden-orange uppercase" id="dashboard-nav-status">--</span>
+								</p>
+								<p style="font-size: 0.9em; margin: 10px 0;"><span class="font-green">NEXTCLOUD:</span>
+									<span class="font-golden-orange uppercase" id="dashboard-nc-status">--</span>
+								</p>
+							</div>
+						</div>
+					</div>
+				</main>
+
+				<!-- Projects Section -->
+				<main id="section-projects" class="content-section">
+					<h1>Project Manager</h1>
+					<div class="buttons" style="margin-bottom: 20px;">
+						<button onclick="createProject()" class="button-almond">CREATE PROJECT</button>
+					</div>
+					<div id="projects-list">
+						<p class="flush uppercase go-big font-golden-orange">No active projects</p>
+					</div>
+				</main>
+
+				<!-- App Launcher Section -->
+				<main id="section-apps" class="content-section">
+					<h1>App Launcher</h1>
+					<div class="lcars-text-bar">
+						<h3>Applications</h3>
+					</div>
+					<div class="buttons" style="margin-top: 30px; display: flex; flex-direction: column; gap: 15px;">
+						<button onclick="openKicad()" class="button-almond">OPEN KICAD</button>
+						<button onclick="openKicadLastProject()" class="button-almond">OPEN KICAD (LAST
+							PROJECT)</button>
+						<button onclick="openBambuStudio()" class="button-almond">OPEN BAMBU STUDIO</button>
+						<button onclick="openPDFViewer()" class="button-almond">LOAD / VIEW PDF</button>
+					</div>
+					<div class="lcars-text-bar" style="margin-top: 40px;">
+						<h3>PDF Categories</h3>
+					</div>
+					<div class="buttons" style="margin-top: 20px; display: flex; flex-direction: column; gap: 15px;">
+						<button onclick="openPDFCategory('datasheets')" class="button-almond">DATASHEETS</button>
+						<button onclick="openPDFCategory('assembly')" class="button-almond">ASSEMBLY GUIDES</button>
+						<button onclick="openPDFCategory('schematics')" class="button-almond">SCHEMATICS</button>
+					</div>
+				</main>
+
+				<!-- System Section -->
+				<main id="section-system" class="content-section">
+					<h1>System & Hardware Stats</h1>
+					<div class="lcars-text-bar">
+						<h3>System Information</h3>
+					</div>
+					<div style="margin: 20px 0;">
+						<p><span class="font-green">CPU LOAD:</span> <span class="font-golden-orange uppercase"
+								id="system-cpu-load">--%</span></p>
+						<p><span class="font-green">RAM USAGE:</span> <span class="font-golden-orange uppercase"
+								id="system-ram-usage">--%</span></p>
+						<p><span class="font-green">DISK SPACE:</span> <span class="font-golden-orange uppercase"
+								id="system-disk-space">--</span></p>
+						<p><span class="font-green">CPU TEMP:</span> <span class="font-golden-orange uppercase"
+								id="system-cpu-temp">--&deg;C</span></p>
+						<p><span class="font-green">WLAN STATUS:</span> <span class="font-golden-orange uppercase"
+								id="system-wlan-status">--</span></p>
+						<p><span class="font-green">CONNECTED TO:</span> <span class="font-golden-orange uppercase"
+								id="system-wlan-ssid">--</span> <span class="font-green" id="system-wlan-core-badge"
+								style="display: none;">[SPECIAL SECURE]</span></p>
+						<p class="flush"
+							style="font-size: 0.85em; color: var(--lcars-light-gray); margin-top: 5px; margin-left: 20px; display: none;"
+							id="system-wlan-core-description">CORE: Communication Operation Routing Environment</p>
+						<p><span class="font-green">WLAN IP:</span> <span class="font-golden-orange uppercase"
+								id="system-wlan-ip">--</span></p>
+						<p><span class="font-green">WLAN RSSI:</span> <span class="font-golden-orange uppercase"
+								id="system-wlan-rssi">--</span></p>
+						<p><span class="font-green">UPTIME:</span> <span class="font-golden-orange uppercase"
+								id="system-uptime-detailed">--</span></p>
+					</div>
+					<div class="lcars-text-bar" style="margin-top: 40px;">
+						<h3>System Controls</h3>
+					</div>
+					<div class="buttons" style="margin-top: 20px; display: flex; flex-direction: column; gap: 15px;">
+						<button onclick="rebootSystem()" class="button-almond">REBOOT SYSTEM</button>
+						<button onclick="shutdownSystem()" class="button-almond">SHUTDOWN SYSTEM</button>
+					</div>
+				</main>
+
+				<!-- Pironman Controls Section -->
+				<main id="section-pironman" class="content-section">
+					<h1>Pironman System Controls</h1>
+					<div class="lcars-text-bar">
+						<h3>Fan Control</h3>
+					</div>
+					<div style="margin: 20px 0;">
+						<p><span class="font-green">FAN STATUS:</span> <span class="font-golden-orange uppercase"
+								id="fan-status">--</span></p>
+					</div>
+					<div class="buttons" style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+						<button onclick="setFanMode('auto')" class="button-almond">FAN AUTO</button>
+						<button onclick="setFanMode('on')" class="button-almond">FAN ON</button>
+						<button onclick="setFanMode('off')" class="button-almond">FAN OFF</button>
+					</div>
+					<div style="margin: 20px 0;">
+						<p><span class="font-green">FAN RGB LED:</span> <span class="font-golden-orange uppercase"
+								id="fan-rgb-led-status">--</span></p>
+						<p class="flush" style="font-size: 0.9em; color: var(--lcars-light-gray); margin-top: 5px;">
+							Control fans RGB LEDs</p>
+					</div>
+					<div class="buttons" style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+						<button onclick="setFanRGBLED('on')" class="button-almond">FAN RGB ON</button>
+						<button onclick="setFanRGBLED('off')" class="button-almond">FAN RGB OFF</button>
+						<button onclick="setFanRGBLED('follow')" class="button-almond">FAN RGB FOLLOW</button>
+					</div>
+					<p class="flush" style="font-size: 0.9em; color: var(--lcars-light-gray); margin-top: 10px;">FOLLOW
+						= RGB turns on automatically when fan is on</p>
+					<div class="lcars-text-bar" style="margin-top: 40px;">
+						<h3>Case Neopixel Control</h3>
+					</div>
+					<p class="flush" style="font-size: 0.9em; color: var(--lcars-light-gray); margin: 10px 0;">Controls
+						Neopixels in the case</p>
+					<div style="margin: 20px 0;">
+						<p><span class="font-green">NEOPIXELS STATUS:</span> <span class="font-golden-orange uppercase"
+								id="rgb-status">--</span></p>
+						<p><span class="font-green">STYLE:</span> <span class="font-golden-orange uppercase"
+								id="rgb-style-display">--</span></p>
+						<p><span class="font-green">BRIGHTNESS:</span> <span class="font-golden-orange uppercase"
+								id="rgb-brightness-display">--%</span></p>
+					</div>
+					<div class="buttons" style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+						<button onclick="setFanRGB('on')" class="button-almond">NEOPIXELS ON</button>
+						<button onclick="setFanRGB('off')" class="button-almond">NEOPIXELS OFF</button>
+					</div>
+					<div style="margin: 20px 0;">
+						<p><span class="font-green">RGB COLOR:</span></p>
+						<div style="margin: 15px 0; display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+							<input type="color" id="rgb-color-picker" value="#0a1aff" onchange="setRGBColor(this.value)"
+								style="width: 80px; height: 40px; cursor: pointer;">
+							<input type="text" id="rgb-color-hex" value="0a1aff" placeholder="Hex color"
+								onchange="setRGBColorFromHex(this.value)"
+								style="padding: 8px; background: var(--lcars-black); color: var(--lcars-orange); border: 2px solid var(--lcars-orange); font-family: monospace; width: 100px;">
+							<span class="font-golden-orange">#</span>
+						</div>
+					</div>
+					<div style="margin: 20px 0;">
+						<p><span class="font-green">RGB STYLE:</span></p>
+						<div class="buttons" style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+							<button onclick="setRGBStyle('solid')" class="button-almond">SOLID</button>
+							<button onclick="setRGBStyle('breathing')" class="button-almond">BREATHING</button>
+							<button onclick="setRGBStyle('flow')" class="button-almond">FLOW</button>
+							<button onclick="setRGBStyle('flow_reverse')" class="button-almond">FLOW REV</button>
+							<button onclick="setRGBStyle('rainbow')" class="button-almond">RAINBOW</button>
+							<button onclick="setRGBStyle('rainbow_reverse')" class="button-almond">RAINBOW REV</button>
+							<button onclick="setRGBStyle('hue_cycle')" class="button-almond">HUE CYCLE</button>
+						</div>
+					</div>
+					<div style="margin: 20px 0;">
+						<p><span class="font-green">RGB BRIGHTNESS:</span> <span class="font-golden-orange uppercase"
+								id="rgb-brightness-value">50%</span></p>
+						<div style="margin: 15px 0; display: flex; align-items: center; gap: 15px;">
+							<input type="range" id="rgb-brightness-slider" min="0" max="100" value="50"
+								onchange="setRGBBrightness(this.value)" style="flex: 1; min-width: 200px;">
+						</div>
+					</div>
+					<div style="margin: 20px 0;">
+						<p><span class="font-green">RGB SPEED:</span> <span class="font-golden-orange uppercase"
+								id="rgb-speed-value">50%</span></p>
+						<div style="margin: 15px 0; display: flex; align-items: center; gap: 15px;">
+							<input type="range" id="rgb-speed-slider" min="0" max="100" value="50"
+								onchange="setRGBSpeed(this.value)" style="flex: 1; min-width: 200px;">
+						</div>
+					</div>
+					<div class="lcars-text-bar" style="margin-top: 40px;">
+						<h3>Display Control</h3>
+					</div>
+					<div style="margin: 20px 0;">
+						<p><span class="font-green">DISPLAY STATUS:</span> <span class="font-golden-orange uppercase"
+								id="display-status">--</span></p>
+					</div>
+					<div class="buttons" style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+						<button onclick="setDisplay('on')" class="button-almond">DISPLAY ON</button>
+						<button onclick="setDisplay('off')" class="button-almond">DISPLAY OFF</button>
+					</div>
+					<div class="lcars-text-bar" style="margin-top: 40px;">
+						<h3>System Power</h3>
+					</div>
+					<div class="buttons" style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+						<button onclick="systemStandby()" class="button-almond">STANDBY</button>
+						<button onclick="rebootSystem()" class="button-almond">REBOOT</button>
+						<button onclick="shutdownSystem()" class="button-almond">SHUTDOWN</button>
+					</div>
+				</main>
+
+				<!-- Servers Section -->
+				<main id="section-servers" class="content-section">
+					<h1>Server Control</h1>
+
+					<!-- LCARS Backend Server -->
+					<div class="lcars-text-bar" style="margin-top: 40px;">
+						<h3>LCARS Backend</h3>
+					</div>
+					<div style="margin: 20px 0;">
+						<div class="buttons" style="margin-top: 15px;">
+							<button onclick="restartServer()" class="button-almond">RESTART SYSTEM</button>
+						</div>
+						<p class="flush" style="font-size: 0.9em; color: var(--lcars-light-gray); margin-top: 10px;">
+							Restart the LCARS backend API and webserver</p>
+					</div>
+
+					<!-- Minecraft Server -->
+					<div class="lcars-text-bar" style="margin-top: 40px;">
+						<h3>Minecraft Server</h3>
+					</div>
+					<div style="margin: 20px 0;">
+						<p><span class="font-green">STATUS:</span> <span class="font-golden-orange uppercase"
+								id="mc-status">--</span></p>
+						<p><span class="font-green">RAM USAGE:</span> <span class="font-golden-orange uppercase"
+								id="mc-ram-usage">--</span></p>
+						<p><span class="font-green">PLAYER COUNT:</span> <span class="font-golden-orange uppercase"
+								id="mc-players">--</span></p>
+						<p><span class="font-green">IP ADDRESS:</span> <span class="font-golden-orange uppercase"
+								id="mc-ip">--</span></p>
+					</div>
+					<div class="buttons" style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+						<button onclick="mcStart()" class="button-almond">START</button>
+						<button onclick="mcStop()" class="button-almond">STOP</button>
+						<button onclick="mcRestart()" class="button-almond">RESTART</button>
+					</div>
+					<div class="buttons" style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+						<button onclick="showMCLog()" class="button-almond">VIEW LOG</button>
+						<button onclick="mcBackup()" class="button-almond">BACKUP</button>
+					</div>
+
+					<!-- Navidrome Server -->
+					<div class="lcars-text-bar" style="margin-top: 40px;">
+						<h3>Navidrome</h3>
+					</div>
+					<div style="margin: 20px 0;">
+						<p><span class="font-green">STATUS:</span> <span class="font-golden-orange uppercase"
+								id="navidrome-status">--</span></p>
+						<p><span class="font-green">VERSION:</span> <span class="font-golden-orange uppercase"
+								id="navidrome-version">--</span></p>
+						<p><span class="font-green">IP ADDRESS:</span> <span class="font-golden-orange uppercase"
+								id="navidrome-ip">--</span></p>
+					</div>
+					<div class="buttons" style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+						<button onclick="navidromeStart()" class="button-almond">START</button>
+						<button onclick="navidromeStop()" class="button-almond">STOP</button>
+						<button onclick="navidromeRestart()" class="button-almond">RESTART</button>
+					</div>
+					<div class="buttons" style="margin-top: 15px;">
+						<button onclick="navidromeLogs()" class="button-almond">VIEW LOGS</button>
+					</div>
+
+					<!-- Nextcloud Server -->
+					<div class="lcars-text-bar" style="margin-top: 40px;">
+						<h3>Nextcloud</h3>
+					</div>
+					<div style="margin: 20px 0;">
+						<p><span class="font-green">STATUS:</span> <span class="font-golden-orange uppercase"
+								id="nextcloud-status">--</span></p>
+						<p><span class="font-green">VERSION:</span> <span class="font-golden-orange uppercase"
+								id="nextcloud-version">--</span></p>
+						<p><span class="font-green">IP ADDRESS:</span> <span class="font-golden-orange uppercase"
+								id="nextcloud-ip">--</span></p>
+					</div>
+					<div class="buttons" style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+						<button onclick="nextcloudStart()" class="button-almond">START</button>
+						<button onclick="nextcloudStop()" class="button-almond">STOP</button>
+						<button onclick="nextcloudRestart()" class="button-almond">RESTART</button>
+					</div>
+					<div class="buttons" style="margin-top: 15px;">
+						<button onclick="nextcloudLogs()" class="button-almond">VIEW LOGS</button>
+					</div>
+				</main>
+
+				<!-- Music Player Section -->
+				<main id="section-music" class="content-section">
+					<h1>Music Player</h1>
+
+					<div class="lcars-text-bar">
+						<h3>Now Playing</h3>
+					</div>
+					<div id="music-now-playing"
+						style="margin-top: 30px; margin-bottom: 20px; padding: 20px; padding-top: 30px; border: 3px solid var(--orange);">
+						<p class="flush uppercase go-big font-golden-orange" id="music-track-title">--</p>
+						<p class="flush uppercase font-golden-orange" id="music-track-artist">--</p>
+						<p class="flush" id="music-track-album">--</p>
+						<div style="margin-top: 20px;">
+							<p><span class="font-green">STATUS:</span> <span class="font-golden-orange uppercase"
+									id="music-status">NOT CONNECTED</span></p>
+						</div>
+					</div>
+
+					<div class="lcars-text-bar" style="margin-top: 40px;">
+						<h3>Player Controls</h3>
+					</div>
+					<div class="music-controls"
+						style="margin-top: 20px; display: flex; gap: 15px; align-items: center;">
+						<button onclick="musicPrevious()" class="button-almond music-btn-icon" title="Previous">
+							<svg viewBox="0 0 24 24" width="24" height="24">
+								<path fill="currentColor" d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
+							</svg>
+						</button>
+						<button onclick="musicToggle()" id="music-toggle-btn"
+							class="button-golden-orange music-btn-icon-large" title="Play/Pause">
+							<svg id="music-play-icon" viewBox="0 0 24 24" width="32" height="32">
+								<path fill="currentColor" d="M8 5.14v14l11-7-11-7z" />
+							</svg>
+							<svg id="music-pause-icon" viewBox="0 0 24 24" width="32" height="32"
+								style="display: none;">
+								<path fill="currentColor" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+							</svg>
+						</button>
+						<button onclick="musicStop()" class="button-almond music-btn-icon" title="Stop">
+							<svg viewBox="0 0 24 24" width="24" height="24">
+								<path fill="currentColor" d="M6 6h12v12H6z" />
+							</svg>
+						</button>
+						<button onclick="musicNext()" class="button-almond music-btn-icon" title="Next">
+							<svg viewBox="0 0 24 24" width="24" height="24">
+								<path fill="currentColor" d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
+							</svg>
+						</button>
+					</div>
+
+					<div class="lcars-text-bar" style="margin-top: 40px;">
+						<h3>Library Management</h3>
+					</div>
+					<div class="buttons" style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+						<button onclick="openMusicFolder()" class="button-almond">OPEN MUSIC FOLDER</button>
+						<button onclick="triggerMusicScan()" class="button-almond">SCAN LIBRARY</button>
+					</div>
+					<p class="flush" style="font-size: 0.9em; color: var(--lcars-light-gray); margin-top: 10px;">Open
+						folder to add music files, then scan to update library</p>
+
+					<div class="lcars-text-bar" style="margin-top: 40px;">
+						<h3>Playlists</h3>
+					</div>
+					<div id="music-playlists" style="margin: 20px 0;">
+						<p class="flush uppercase go-big font-golden-orange">Loading playlists...</p>
+					</div>
+
+					<div class="lcars-text-bar" style="margin-top: 40px;">
+						<h3>Search</h3>
+					</div>
+					<div style="margin: 20px 0;">
+						<div style="display: flex; gap: 10px; margin-bottom: 15px;">
+							<input type="text" id="music-search-input" placeholder="Search songs, artists, albums..."
+								onkeydown="if(event.key === 'Enter') musicSearch()"
+								style="flex: 1; padding: 10px; background: var(--lcars-black); color: var(--lcars-orange); border: 2px solid var(--lcars-orange); font-family: monospace;">
+							<button onclick="musicSearch()" class="button-almond">SEARCH</button>
+						</div>
+						<div id="music-search-results" style="margin-top: 20px;">
+							<!-- Search results will appear here -->
+						</div>
+					</div>
+
+					<!-- Hidden audio element for playback -->
+					<audio id="music-player" preload="none" style="display: none;"></audio>
+				</main>
+
+				<!-- Network Section -->
+				<main id="section-network" class="content-section">
+					<h1>Local Network Scan</h1>
+
+					<div class="lcars-text-bar">
+						<h3>Local Network Information</h3>
+					</div>
+					<div style="margin: 20px 0;">
+						<p><span class="font-green">GATEWAY:</span> <span class="font-golden-orange"
+								id="network-gateway">--</span></p>
+						<p><span class="font-green">LOCAL IP:</span> <span class="font-golden-orange"
+								id="network-local-ip">--</span></p>
+					</div>
+
+					<div class="buttons" style="margin-bottom: 30px;">
+						<button onclick="loadNetworkDevices()" class="button-almond">SCAN NETWORK</button>
+					</div>
+
+					<div class="lcars-text-bar">
+						<h3>Connected Devices</h3>
+					</div>
+
+					<div id="network-progress-container" class="hidden" style="margin: 20px 0;">
+						<div class="lcars-progress-bar">
+							<div class="progress-fill"></div>
+						</div>
+						<p class="flush uppercase blink-slow font-golden-orange"
+							style="font-size: 0.9em; margin-top: 10px;">Compiling Subnet Telemetry...</p>
+					</div>
+
+					<div id="network-devices-list" style="margin-top: 20px;">
+						<p class="flush uppercase go-big font-golden-orange">No devices scanned</p>
+					</div>
+				</main>
+
+				<!-- Settings Section -->
+				<main id="section-settings" class="content-section">
+					<h1>Settings</h1>
+
+					<div class="lcars-text-bar">
+						<h3>Display Settings</h3>
+					</div>
+					<div style="margin: 20px 0;">
+						<p><span class="font-green">FULLSCREEN MODE:</span> <span class="font-golden-orange uppercase"
+								id="fullscreen-status">OFF</span></p>
+						<div class="buttons" style="margin-top: 15px;">
+							<button onclick="toggleFullscreen()" class="button-almond" id="fullscreen-button">ENTER
+								FULLSCREEN</button>
+						</div>
+					</div>
+
+					<div class="lcars-text-bar" style="margin-top: 40px;">
+						<h3>Audio Settings</h3>
+					</div>
+					<div style="margin: 20px 0;">
+						<p><span class="font-green">SOUND VOLUME:</span> <span class="font-golden-orange uppercase"
+								id="volume-display">100%</span></p>
+						<div style="margin: 15px 0; display: flex; align-items: center; gap: 15px;">
+							<input type="range" id="volume-slider" min="0" max="100" value="100"
+								onchange="setVolume(this.value)" style="flex: 1; min-width: 200px;">
+							<span id="volume-value" class="font-golden-orange">100%</span>
+						</div>
+						<div class="buttons" style="margin-top: 10px;">
+							<button onclick="setVolume(0)" class="button-almond">MUTE</button>
+							<button onclick="setVolume(50)" class="button-almond">50%</button>
+							<button onclick="setVolume(100)" class="button-almond">100%</button>
+						</div>
+					</div>
+
+					<div class="lcars-text-bar" style="margin-top: 40px;">
+						<h3>Standby Settings</h3>
+					</div>
+					<div style="margin: 20px 0;">
+						<p><span class="font-green">STANDBY TIMEOUT:</span> <span class="font-golden-orange uppercase"
+								id="standby-timeout-display">5 MIN</span></p>
+						<div style="margin: 15px 0; display: flex; align-items: center; gap: 15px;">
+							<input type="range" id="standby-timeout-slider" min="1" max="30" value="5"
+								onchange="setStandbyTimeout(this.value)" style="flex: 1; min-width: 200px;">
+							<span id="standby-timeout-value" class="font-golden-orange">5 MIN</span>
+						</div>
+						<p class="flush" style="font-size: 0.9em; color: var(--lcars-light-gray); margin-top: 10px;">
+							Time until screensaver activates (1-30 minutes)</p>
+					</div>
+
+					<div style="margin: 30px 0;">
+						<p class="flush" style="font-size: 0.9em; color: var(--lcars-light-gray); margin-bottom: 20px;">
+							Configure what happens when entering standby mode</p>
+
+						<div style="margin-bottom: 25px;">
+							<p><span class="font-green">DISPLAY:</span></p>
+							<div class="buttons" style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
+								<button onclick="setStandbyConfig('display', 'off')" class="button-almond"
+									id="standby-display-off">TURN OFF</button>
+								<button onclick="setStandbyConfig('display', 'on')" class="button-almond"
+									id="standby-display-on">KEEP ON</button>
+							</div>
+							<p class="flush" style="font-size: 0.9em; color: var(--lcars-light-gray); margin-top: 5px;">
+								Current: <span class="font-golden-orange" id="standby-display-status">TURN OFF</span>
+							</p>
+						</div>
+
+						<div style="margin-bottom: 25px;">
+							<p><span class="font-green">LIGHTS (RGB/NEOPIXELS):</span></p>
+							<div class="buttons" style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
+								<button onclick="setStandbyConfig('lights', 'off')" class="button-almond"
+									id="standby-lights-off">TURN OFF</button>
+								<button onclick="setStandbyConfig('lights', 'on')" class="button-almond"
+									id="standby-lights-on">KEEP ON</button>
+							</div>
+							<p class="flush" style="font-size: 0.9em; color: var(--lcars-light-gray); margin-top: 5px;">
+								Current: <span class="font-golden-orange" id="standby-lights-status">TURN OFF</span></p>
+						</div>
+
+						<div style="margin-bottom: 25px;">
+							<p><span class="font-green">FAN MODE:</span></p>
+							<div class="buttons" style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
+								<button onclick="setStandbyConfig('fan', 'auto')" class="button-almond"
+									id="standby-fan-auto">AUTO</button>
+								<button onclick="setStandbyConfig('fan', 'on')" class="button-almond"
+									id="standby-fan-on">ON</button>
+								<button onclick="setStandbyConfig('fan', 'off')" class="button-almond"
+									id="standby-fan-off">OFF</button>
+							</div>
+							<p class="flush" style="font-size: 0.9em; color: var(--lcars-light-gray); margin-top: 5px;">
+								Current: <span class="font-golden-orange" id="standby-fan-status">AUTO</span></p>
+						</div>
+
+						<div style="margin-bottom: 25px;">
+							<p><span class="font-green">MINECRAFT SERVER:</span></p>
+							<div class="buttons" style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
+								<button onclick="setStandbyConfig('minecraft', 'keep')" class="button-almond"
+									id="standby-minecraft-keep">KEEP RUNNING</button>
+								<button onclick="setStandbyConfig('minecraft', 'stop')" class="button-almond"
+									id="standby-minecraft-stop">STOP</button>
+							</div>
+							<p class="flush" style="font-size: 0.9em; color: var(--lcars-light-gray); margin-top: 5px;">
+								Current: <span class="font-golden-orange" id="standby-minecraft-status">KEEP
+									RUNNING</span></p>
+						</div>
+					</div>
+
+					<div class="buttons" style="margin-top: 30px;">
+						<button onclick="showSystemSettings()" class="button-almond">SYSTEM SETTINGS</button>
+					</div>
+				</main>
+
+				<footer>
+					&#169; 2025 Wayne Tech Lab - Lab Core Access Retrieval System v1.5<br>
+					LCARS design by Michael Okuda | Template by TheLCARS.com
+				</footer>
+			</div>
+		</div>
+	</section>
+
+	<!-- Screensaver / Standby Mode -->
+	<div id="screensaver" class="screensaver hidden" onclick="exitStandby()" style="cursor: pointer;">
+		<div class="screensaver-content">
+			<div class="screensaver-time" id="screensaver-time">00:00:00</div>
+			<div class="screensaver-date" id="screensaver-date">--</div>
+			<div class="screensaver-subtitle">Wayne Tech Lab - Lab Core Access Retrieval System</div>
+			<div class="screensaver-exit"
+				style="margin-top: 40px; font-size: 1.2rem; color: var(--golden-orange); letter-spacing: 0.1em; text-transform: uppercase;">
+				DOUBLE TAP TO WAKE</div>
+		</div>
+	</div>
+
+	<!-- LCARS Modal System -->
+	<div id="lcars-modal" class="lcars-modal hidden">
+		<div class="lcars-modal-overlay" onclick="lcarsModalClose()"></div>
+		<div class="lcars-modal-content">
+			<div class="lcars-modal-header">
+				<div class="lcars-modal-title" id="lcars-modal-title">ALERT</div>
+				<button class="lcars-modal-close" onclick="lcarsModalClose()">X</button>
+			</div>
+			<div class="lcars-modal-body">
+				<div class="lcars-modal-message" id="lcars-modal-message"></div>
+				<div class="lcars-modal-input-wrapper" id="lcars-modal-input-wrapper" style="display: none;">
+					<input type="text" id="lcars-modal-input" class="lcars-modal-input" placeholder="">
+				</div>
+			</div>
+			<div class="lcars-modal-footer" id="lcars-modal-footer">
+				<button class="button-almond" id="lcars-modal-ok" onclick="lcarsModalOk()">OK</button>
+			</div>
+		</div>
+	</div>
+
+	<script type="text/javascript" src="scripts/lcars.js?v=5"></script>
+	<script type="text/javascript" src="scripts/index_scripts.js?v=8"></script>
+	<div class="headtrim"> </div>
+	<div class="baseboard"> </div>
+	<audio id="audio1" src="https://www.thelcars.com/assets/beep1.mp3" preload="auto"></audio>
+	<audio id="audio2" src="https://www.thelcars.com/assets/beep2.mp3" preload="auto"></audio>
+	<audio id="audio3" src="https://www.thelcars.com/assets/beep3.mp3" preload="auto"></audio>
+	<audio id="audio4" src="https://www.thelcars.com/assets/beep4.mp3" preload="auto"></audio>
+
+</body>
+
+</html>
