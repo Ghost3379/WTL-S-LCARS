@@ -401,7 +401,7 @@ async function enterStandby() {
     dashboard.style.opacity = '0.1';
 
     // Get standby configuration
-    const standbyConfig = getStandbyConfig();
+    const standbyConfig = await getStandbyConfig();
 
     // Save current system state
     try {
@@ -420,27 +420,29 @@ async function enterStandby() {
             speed: pironmanData.rgb.speed
         };
 
-        // Handle lights based on config
+        // Prepare batch settings based on config
+        const batchData = {};
+
         if (standbyConfig.lights === 'off' && pironmanData.rgb.on) {
-            await fetch(`/api/pironman/fan-rgb`, {
+            batchData.rgb = 'off';
+        }
+
+        if (standbyConfig.display === 'off') {
+            batchData.display = 'off';
+        }
+
+        if (standbyConfig.fan !== 'auto') {
+            batchData.fan = standbyConfig.fan;
+        }
+
+        // Only send if there are actually things to change
+        if (Object.keys(batchData).length > 0) {
+            await fetch(`/api/pironman/batch`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ state: 'off' })
+                body: JSON.stringify(batchData)
             });
         }
-        // If config says 'on', lights stay on (do nothing)
-
-        // Handle display based on config
-        if (standbyConfig.display === 'off') {
-            await setDisplay('off');
-        }
-        // If config says 'on', display stays on (do nothing)
-
-        // Handle fan based on config
-        if (standbyConfig.fan !== 'auto') {
-            await setFanMode(standbyConfig.fan);
-        }
-        // If config says 'auto', fan stays in auto mode (do nothing)
 
     } catch (error) {
         console.error('Failed to save system state:', error);
@@ -722,54 +724,35 @@ async function exitStandby() {
     }, 0); // No delay, instant startup
 
     // Restore system state based on what was changed
-    const standbyConfig = getStandbyConfig();
+    const standbyConfig = await getStandbyConfig();
 
     try {
-        // Restore display if it was turned off
+        const batchData = {};
+
+        // Restore display if it was turned off and originally on
         if (standbyConfig.display === 'off' && systemStateBeforeStandby.display !== null) {
             if (systemStateBeforeStandby.display) {
-                await setDisplay('on');
+                batchData.display = 'on';
             }
         }
 
-        // Restore lights if they were turned off
+        // Restore lights if they were turned off and originally on
         if (standbyConfig.lights === 'off' && rgbStateBeforeStandby && rgbStateBeforeStandby.on) {
-            try {
-                // Restore RGB color, style, brightness, and speed, then enable
-                await fetch(`/api/pironman/fan-rgb-color`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ color: rgbStateBeforeStandby.color })
-                });
-                await fetch(`/api/pironman/fan-rgb-style`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ style: rgbStateBeforeStandby.style })
-                });
-                await fetch(`/api/pironman/fan-rgb-brightness`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ brightness: rgbStateBeforeStandby.brightness })
-                });
-                await fetch(`/api/pironman/fan-rgb-speed`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ speed: rgbStateBeforeStandby.speed })
-                });
-                // Enable RGB
-                await fetch(`/api/pironman/fan-rgb`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ state: 'on' })
-                });
-            } catch (error) {
-                console.error('Failed to restore RGB state:', error);
-            }
+            batchData.rgb = 'on';
         }
 
         // Restore fan mode if it was changed
         if (standbyConfig.fan !== 'auto' && systemStateBeforeStandby.fan !== null) {
-            await setFanMode(systemStateBeforeStandby.fan);
+            batchData.fan = systemStateBeforeStandby.fan;
+        }
+
+        // Only send if there are things to restore
+        if (Object.keys(batchData).length > 0) {
+            await fetch(`/api/pironman/batch`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(batchData)
+            });
         }
 
         // Reload status to update UI
@@ -818,6 +801,7 @@ function loadDashboardData() {
     updateSystemUptime();
     updateActiveProjects();
     updateServerStats();
+    fetchUpdateStatus();
 }
 
 // Update active projects count
@@ -1220,6 +1204,7 @@ async function openPDFCategory(category) {
 async function loadSystemInfo() {
     await updateSystemStats();
     await updateSystemUptime();
+    await fetchUpdateStatus();
 }
 
 function showSystemInfo() {
@@ -2695,4 +2680,195 @@ function updateElement(id, text) {
         el.textContent = text;
     }
 }
+
+// System & UI Updates Management
+let updatePollingInterval = null;
+
+async function fetchUpdateStatus() {
+    try {
+        const response = await fetch(`/api/system/updates/status`);
+        if (!response.ok) return;
+        const data = await response.json();
+
+        // 1. Render Dashboard Badges
+        const dashSysEl = document.getElementById('dashboard-system-update-status');
+        if (dashSysEl) {
+            if (data.system_updates && data.system_updates.available) {
+                dashSysEl.textContent = `${data.system_updates.count} UPDATES AVAILABLE`;
+                dashSysEl.className = 'font-golden-orange uppercase blink-slow';
+            } else {
+                dashSysEl.textContent = 'UP TO DATE';
+                dashSysEl.className = 'font-green uppercase';
+            }
+        }
+
+        const dashUiEl = document.getElementById('dashboard-ui-update-status');
+        if (dashUiEl) {
+            if (data.ui_updates && data.ui_updates.available) {
+                dashUiEl.textContent = `${data.ui_updates.commits_behind} COMMITS BEHIND`;
+                dashUiEl.className = 'font-golden-orange uppercase blink-slow';
+            } else {
+                dashUiEl.textContent = 'UP TO DATE';
+                dashUiEl.className = 'font-green uppercase';
+            }
+        }
+
+        // 2. Render System Section Details
+        updateElement('update-last-check-time', data.last_check || 'NEVER');
+
+        // Raspberry Pi OS details
+        const sysBadgeEl = document.getElementById('system-update-status-badge');
+        if (sysBadgeEl) {
+            if (data.system_updates && data.system_updates.available) {
+                sysBadgeEl.textContent = `${data.system_updates.count} UPDATES AVAILABLE`;
+                sysBadgeEl.className = 'font-golden-orange uppercase';
+            } else {
+                sysBadgeEl.textContent = 'UP TO DATE';
+                sysBadgeEl.className = 'font-green uppercase';
+            }
+        }
+        updateElement('system-update-count', data.system_updates ? data.system_updates.count : 0);
+
+        const pkgListEl = document.getElementById('system-packages-list');
+        if (pkgListEl) {
+            if (data.system_updates && data.system_updates.packages && data.system_updates.packages.length > 0) {
+                let html = '';
+                data.system_updates.packages.forEach(pkg => {
+                    html += `<div style="margin-bottom: 4px;"><span class="font-golden-orange">${pkg.name}</span> (${pkg.old_version} &rarr; ${pkg.new_version})</div>`;
+                });
+                pkgListEl.innerHTML = html;
+            } else if (data.status === 'checking') {
+                pkgListEl.innerHTML = '<span style="color: var(--golden-orange);" class="blink-slow">Scanning package repositories...</span>';
+            } else {
+                pkgListEl.innerHTML = '<span style="color: #888;">System up to date. No package updates needed.</span>';
+            }
+        }
+
+        // WTL UI details
+        const uiBadgeEl = document.getElementById('ui-update-status-badge');
+        if (uiBadgeEl) {
+            if (data.ui_updates && data.ui_updates.available) {
+                uiBadgeEl.textContent = `${data.ui_updates.commits_behind} COMMITS BEHIND`;
+                uiBadgeEl.className = 'font-golden-orange uppercase';
+            } else {
+                uiBadgeEl.textContent = 'UP TO DATE';
+                uiBadgeEl.className = 'font-green uppercase';
+            }
+        }
+        updateElement('ui-current-commit', data.ui_updates ? data.ui_updates.current_commit : '--');
+        updateElement('ui-remote-commit', data.ui_updates ? data.ui_updates.remote_commit : '--');
+
+        const changelogEl = document.getElementById('ui-changelog-list');
+        if (changelogEl) {
+            if (data.ui_updates && data.ui_updates.changelog && data.ui_updates.changelog.length > 0) {
+                let html = '';
+                data.ui_updates.changelog.forEach(entry => {
+                    html += `<div style="margin-bottom: 4px;">&bull; ${entry}</div>`;
+                });
+                changelogEl.innerHTML = html;
+            } else if (data.status === 'checking') {
+                changelogEl.innerHTML = '<span style="color: var(--golden-orange);" class="blink-slow">Fetching remote repository log...</span>';
+            } else {
+                changelogEl.innerHTML = '<span style="color: #888;">UI interface is up to date.</span>';
+            }
+        }
+
+        // Reboot banner
+        const rebootBanner = document.getElementById('update-reboot-banner');
+        if (rebootBanner) {
+            rebootBanner.style.display = data.reboot_required ? 'block' : 'none';
+        }
+
+        // Console Log Output
+        const consoleStatusEl = document.getElementById('update-console-status');
+        if (consoleStatusEl) {
+            consoleStatusEl.textContent = `STATUS: ${data.status.toUpperCase()} - ${data.progress}`;
+            if (data.status === 'checking' || data.status === 'updating') {
+                consoleStatusEl.className = 'font-golden-orange blink-slow';
+            } else {
+                consoleStatusEl.className = 'font-golden-orange';
+            }
+        }
+
+        const consoleLogEl = document.getElementById('update-console-log');
+        if (consoleLogEl && data.log && data.log.length > 0) {
+            consoleLogEl.textContent = data.log.join('\n');
+            consoleLogEl.scrollTop = consoleLogEl.scrollHeight;
+        }
+
+        // Button States during operations
+        const isBusy = data.status === 'checking' || data.status === 'updating';
+        ['btn-check-updates', 'btn-update-all', 'btn-update-system', 'btn-update-ui'].forEach(btnId => {
+            const btn = document.getElementById(btnId);
+            if (btn) {
+                btn.disabled = isBusy;
+                btn.style.opacity = isBusy ? '0.5' : '1';
+                btn.style.cursor = isBusy ? 'not-allowed' : 'pointer';
+            }
+        });
+
+        // Polling management
+        if (isBusy) {
+            if (!updatePollingInterval) {
+                updatePollingInterval = setInterval(fetchUpdateStatus, 1000);
+            }
+        } else {
+            if (updatePollingInterval) {
+                clearInterval(updatePollingInterval);
+                updatePollingInterval = null;
+            }
+        }
+    } catch (error) {
+        console.error('Failed to fetch update status:', error);
+    }
+}
+
+async function checkForUpdates() {
+    try {
+        const consoleStatusEl = document.getElementById('update-console-status');
+        if (consoleStatusEl) {
+            consoleStatusEl.textContent = 'STATUS: INITIATING CHECK...';
+            consoleStatusEl.className = 'font-golden-orange blink-slow';
+        }
+
+        await fetch(`/api/system/updates/check`, { method: 'POST' });
+
+        if (!updatePollingInterval) {
+            updatePollingInterval = setInterval(fetchUpdateStatus, 1000);
+        }
+        await fetchUpdateStatus();
+    } catch (error) {
+        console.error('Failed to initiate update check:', error);
+        await lcarsAlert('Failed to connect to backend for update check.');
+    }
+}
+
+async function applyUpdates(target) {
+    const targetTitle = target === 'system' ? 'Raspberry Pi OS Packages' : target === 'wtl_ui' ? 'WTL UI Interface' : 'All System Packages & WTL UI';
+    const confirmed = await lcarsConfirm(`Are you sure you want to perform update for: ${targetTitle}?`);
+    if (!confirmed) return;
+
+    try {
+        const consoleStatusEl = document.getElementById('update-console-status');
+        if (consoleStatusEl) {
+            consoleStatusEl.textContent = `STATUS: INITIATING ${target.toUpperCase()} UPDATE...`;
+            consoleStatusEl.className = 'font-golden-orange blink-slow';
+        }
+
+        await fetch(`/api/system/updates/apply`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target: target })
+        });
+
+        if (!updatePollingInterval) {
+            updatePollingInterval = setInterval(fetchUpdateStatus, 1000);
+        }
+        await fetchUpdateStatus();
+    } catch (error) {
+        console.error('Failed to apply updates:', error);
+        await lcarsAlert('Failed to initiate update process.');
+    }
+}
+
 

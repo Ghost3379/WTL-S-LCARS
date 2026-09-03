@@ -10,10 +10,37 @@ import socket
 import os
 from datetime import datetime, timedelta
 import json
+import threading
+import time
+import re
 
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), '..', 'data', 'settings.json')
+REPO_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 bp = Blueprint('system', __name__)
+
+update_lock = threading.Lock()
+
+UPDATE_STATE = {
+    'status': 'idle',  # 'idle', 'checking', 'updating', 'completed', 'error'
+    'progress': 'Idle',
+    'log': [],
+    'reboot_required': False,
+    'last_check': None,
+    'system_updates': {
+        'available': False,
+        'count': 0,
+        'packages': []
+    },
+    'ui_updates': {
+        'available': False,
+        'current_commit': '--',
+        'remote_commit': '--',
+        'commits_behind': 0,
+        'changelog': [],
+        'has_local_changes': False
+    }
+}
 
 def get_cpu_temp():
     """Get CPU temperature from Raspberry Pi"""
@@ -315,3 +342,241 @@ def restart_server():
         return jsonify({'status': 'restarting'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+def log_update_msg(msg):
+    """Add a timestamped message to the update log"""
+    timestamp = datetime.now().strftime('%H:%M:%S')
+    formatted = f"[{timestamp}] {msg}"
+    with update_lock:
+        UPDATE_STATE['log'].append(formatted)
+        if len(UPDATE_STATE['log']) > 500:
+            UPDATE_STATE['log'] = UPDATE_STATE['log'][-500:]
+
+
+def perform_check_updates():
+    """Worker function to check for Raspberry Pi system & WTL UI updates"""
+    with update_lock:
+        UPDATE_STATE['status'] = 'checking'
+        UPDATE_STATE['progress'] = 'Checking Raspberry Pi system package updates...'
+        UPDATE_STATE['log'] = []
+    
+    log_update_msg("=== LCARS TELEMETRY: UPDATE CHECK INITIATED ===")
+    
+    # 1. Check Raspberry Pi System Package Updates (apt)
+    try:
+        log_update_msg("Updating apt package lists (sudo apt-get update)...")
+        res_apt_upd = subprocess.run(['sudo', '-n', 'apt-get', 'update'], 
+                                     capture_output=True, text=True, timeout=45)
+        if res_apt_upd.returncode != 0 and res_apt_upd.stderr:
+            log_update_msg(f"Apt update notice: {res_apt_upd.stderr.strip()[:200]}")
+            
+        log_update_msg("Querying upgradable packages (apt list --upgradable)...")
+        res_apt_list = subprocess.run(['apt', 'list', '--upgradable'], 
+                                      capture_output=True, text=True, timeout=20)
+        
+        packages = []
+        if res_apt_list.returncode == 0:
+            lines = res_apt_list.stdout.splitlines()
+            for line in lines:
+                if 'upgradable from:' in line:
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        pkg_info = parts[0]
+                        pkg_name = pkg_info.split('/')[0]
+                        new_ver = parts[1]
+                        
+                        old_ver = '--'
+                        match = re.search(r'upgradable from:\s*([^\]]+)', line)
+                        if match:
+                            old_ver = match.group(1).strip()
+                            
+                        packages.append({
+                            'name': pkg_name,
+                            'new_version': new_ver,
+                            'old_version': old_ver,
+                            'info': pkg_info
+                        })
+                        
+        with update_lock:
+            UPDATE_STATE['system_updates'] = {
+                'available': len(packages) > 0,
+                'count': len(packages),
+                'packages': packages
+            }
+        log_update_msg(f"System check finished: {len(packages)} upgradable package(s) detected.")
+    except Exception as e:
+        log_update_msg(f"Error checking system package updates: {e}")
+        with update_lock:
+            UPDATE_STATE['system_updates'] = {'available': False, 'count': 0, 'packages': []}
+
+    # 2. Check WTL UI Repository Updates (git)
+    with update_lock:
+        UPDATE_STATE['progress'] = 'Checking WTL UI git repository...'
+    try:
+        log_update_msg(f"Checking WTL UI repository at {REPO_PATH}...")
+        
+        subprocess.run(['git', 'fetch', 'origin'], cwd=REPO_PATH, 
+                       capture_output=True, text=True, timeout=20)
+        
+        cur_commit_res = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'], 
+                                        cwd=REPO_PATH, capture_output=True, text=True, timeout=5)
+        cur_commit = cur_commit_res.stdout.strip() if cur_commit_res.returncode == 0 else '--'
+        
+        branch_res = subprocess.run(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], 
+                                    cwd=REPO_PATH, capture_output=True, text=True, timeout=5)
+        branch = branch_res.stdout.strip() if branch_res.returncode == 0 else 'main'
+        if branch == 'HEAD':
+            branch = 'main'
+            
+        target_remote = f"origin/{branch}"
+        
+        remote_commit_res = subprocess.run(['git', 'rev-parse', '--short', target_remote], 
+                                           cwd=REPO_PATH, capture_output=True, text=True, timeout=5)
+        remote_commit = remote_commit_res.stdout.strip() if remote_commit_res.returncode == 0 else cur_commit
+        
+        behind_res = subprocess.run(['git', 'rev-list', '--count', f"HEAD..{target_remote}"], 
+                                    cwd=REPO_PATH, capture_output=True, text=True, timeout=5)
+        try:
+            commits_behind = int(behind_res.stdout.strip()) if behind_res.returncode == 0 else 0
+        except ValueError:
+            commits_behind = 0
+            
+        changelog = []
+        if commits_behind > 0:
+            log_res = subprocess.run(['git', 'log', f"HEAD..{target_remote}", '--pretty=format:%h - %s (%cr)', '-n', '15'], 
+                                     cwd=REPO_PATH, capture_output=True, text=True, timeout=5)
+            if log_res.returncode == 0 and log_res.stdout:
+                changelog = log_res.stdout.splitlines()
+                
+        status_res = subprocess.run(['git', 'status', '--porcelain'], 
+                                    cwd=REPO_PATH, capture_output=True, text=True, timeout=5)
+        has_local_changes = bool(status_res.returncode == 0 and status_res.stdout.strip())
+        
+        with update_lock:
+            UPDATE_STATE['ui_updates'] = {
+                'available': commits_behind > 0,
+                'current_commit': cur_commit,
+                'remote_commit': remote_commit,
+                'commits_behind': commits_behind,
+                'changelog': changelog,
+                'has_local_changes': has_local_changes
+            }
+        log_update_msg(f"WTL UI check finished: Current={cur_commit}, Remote={remote_commit}, Commits behind={commits_behind}.")
+    except Exception as e:
+        log_update_msg(f"Error checking WTL UI updates: {e}")
+
+    # 3. Check Reboot Required
+    reboot_req = os.path.exists('/var/run/reboot-required')
+
+    with update_lock:
+        UPDATE_STATE['reboot_required'] = reboot_req
+        UPDATE_STATE['last_check'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        UPDATE_STATE['status'] = 'idle'
+        UPDATE_STATE['progress'] = 'Check completed.'
+        
+    log_update_msg("=== LCARS TELEMETRY: CHECK COMPLETED ===")
+
+
+def perform_apply_updates(target):
+    """Worker function to apply system and/or WTL UI updates"""
+    with update_lock:
+        UPDATE_STATE['status'] = 'updating'
+        UPDATE_STATE['progress'] = f"Applying {target} updates..."
+        UPDATE_STATE['log'] = []
+
+    log_update_msg(f"=== LCARS TELEMETRY: APPLYING UPDATES (Target: {target.upper()}) ===")
+
+    if target in ('wtl_ui', 'all'):
+        try:
+            log_update_msg("Updating WTL UI repository via git...")
+            status_res = subprocess.run(['git', 'status', '--porcelain'], 
+                                        cwd=REPO_PATH, capture_output=True, text=True, timeout=5)
+            if status_res.returncode == 0 and status_res.stdout.strip():
+                log_update_msg("Local uncommitted modifications detected. Stashing local changes before pull...")
+                subprocess.run(['git', 'stash'], cwd=REPO_PATH, capture_output=True, text=True, timeout=10)
+
+            log_update_msg("Executing git pull origin main...")
+            pull_proc = subprocess.Popen(['git', 'pull', 'origin', 'main'], 
+                                         cwd=REPO_PATH, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            for line in iter(pull_proc.stdout.readline, ''):
+                if line:
+                    log_update_msg(f"[GIT] {line.strip()}")
+            pull_proc.stdout.close()
+            pull_proc.wait()
+            log_update_msg("WTL UI git update completed.")
+
+            # Sync updated repository files to /var/www/html if web root is separated
+            www_path = '/var/www/html'
+            if os.path.exists(www_path) and os.path.abspath(www_path) != REPO_PATH:
+                log_update_msg("Syncing updated repository files to web server root (/var/www/html)...")
+                subprocess.run(f"sudo cp -r {REPO_PATH}/* {www_path}/ && sudo chown -R www-data:www-data {www_path}", 
+                               shell=True, capture_output=True, text=True)
+                log_update_msg("Web root sync complete.")
+        except Exception as e:
+            log_update_msg(f"Error during WTL UI update: {e}")
+
+    if target in ('system', 'all'):
+        try:
+            log_update_msg("Upgrading Raspberry Pi system packages (sudo apt-get upgrade -y)...")
+            apt_proc = subprocess.Popen('sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y', 
+                                        shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            for line in iter(apt_proc.stdout.readline, ''):
+                if line:
+                    clean_line = line.strip()
+                    if clean_line:
+                        log_update_msg(f"[APT] {clean_line}")
+            apt_proc.stdout.close()
+            apt_proc.wait()
+            log_update_msg("Raspberry Pi system packages upgrade completed.")
+        except Exception as e:
+            log_update_msg(f"Error during system package upgrade: {e}")
+
+    reboot_req = os.path.exists('/var/run/reboot-required')
+    with update_lock:
+        UPDATE_STATE['reboot_required'] = reboot_req
+        UPDATE_STATE['status'] = 'completed'
+        UPDATE_STATE['progress'] = 'Updates completed.'
+
+    log_update_msg("=== LCARS TELEMETRY: ALL UPDATES COMPLETED ===")
+    if reboot_req:
+        log_update_msg("[ALERT] System restart is recommended to finalize kernel/system updates.")
+
+    perform_check_updates()
+
+
+@bp.route('/updates/status', methods=['GET'])
+def get_updates_status():
+    """Get current update status, progress, logs, and update info"""
+    with update_lock:
+        return jsonify(UPDATE_STATE)
+
+
+@bp.route('/updates/check', methods=['POST'])
+def check_updates_endpoint():
+    """Trigger background check for available system & UI updates"""
+    with update_lock:
+        if UPDATE_STATE['status'] in ('checking', 'updating'):
+            return jsonify({'status': UPDATE_STATE['status'], 'message': 'Operation already in progress'}), 409
+
+    t = threading.Thread(target=perform_check_updates, daemon=True)
+    t.start()
+    return jsonify({'status': 'checking', 'message': 'Update check initiated'})
+
+
+@bp.route('/updates/apply', methods=['POST'])
+def apply_updates_endpoint():
+    """Trigger background execution of system and/or UI updates"""
+    data = request.json or {}
+    target = data.get('target', 'all')
+    if target not in ('system', 'wtl_ui', 'all'):
+        return jsonify({'error': 'Invalid target specified'}), 400
+
+    with update_lock:
+        if UPDATE_STATE['status'] in ('checking', 'updating'):
+            return jsonify({'status': UPDATE_STATE['status'], 'message': 'Operation already in progress'}), 409
+
+    t = threading.Thread(target=perform_apply_updates, args=(target,), daemon=True)
+    t.start()
+    return jsonify({'status': 'updating', 'target': target, 'message': f"Update process initiated for {target}"})
+

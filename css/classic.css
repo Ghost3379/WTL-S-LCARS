@@ -3867,3 +3867,24 @@ footer:has(.footer-frame) {
 		margin-top: 20px !important;
 	}
 }
+
+/* Update console & list scrollbar styles */
+#system-packages-list::-webkit-scrollbar,
+#ui-changelog-list::-webkit-scrollbar,
+#update-console-log::-webkit-scrollbar {
+	width: 6px;
+	display: block !important;
+}
+
+#system-packages-list::-webkit-scrollbar-thumb,
+#ui-changelog-list::-webkit-scrollbar-thumb,
+#update-console-log::-webkit-scrollbar-thumb {
+	background: var(--orange);
+	border-radius: 3px;
+}
+
+#system-packages-list::-webkit-scrollbar-track,
+#ui-changelog-list::-webkit-scrollbar-track,
+#update-console-log::-webkit-scrollbar-track {
+	background: #111;
+}

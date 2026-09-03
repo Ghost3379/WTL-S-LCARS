@@ -9,7 +9,7 @@
 	<meta name="format-detection" content="date=no">
 	<link rel="icon" type="image/png" href="assets/WT-website-logo.png">
 	<link rel="shortcut icon" type="image/png" href="assets/WT-website-logo.png">
-	<link rel="stylesheet" type="text/css" href="css/classic.css?v=8">
+	<link rel="stylesheet" type="text/css" href="css/classic.css?v=9">
 </head>
 
 <body>
@@ -129,6 +129,22 @@
 								</p>
 							</div>
 						</div>
+						<div class="status-card" style="padding: 20px; border: 3px solid var(--orange);">
+							<div class="lcars-text-bar">
+								<h3>SYSTEM UPDATES</h3>
+							</div>
+							<div style="margin-top: 15px; text-align: left; line-height: 1.8;">
+								<p style="font-size: 0.9em; margin: 10px 0;"><span class="font-green">RASPBERRY PI:</span>
+									<span class="font-golden-orange uppercase" id="dashboard-system-update-status">--</span>
+								</p>
+								<p style="font-size: 0.9em; margin: 10px 0;"><span class="font-green">WTL UI:</span>
+									<span class="font-golden-orange uppercase" id="dashboard-ui-update-status">--</span>
+								</p>
+								<div class="buttons" style="margin-top: 10px;">
+									<button onclick="switchSection('system'); checkForUpdates();" class="button-almond" style="padding: 5px 12px; font-size: 0.75rem;">CHECK UPDATES</button>
+								</div>
+							</div>
+						</div>
 					</div>
 				</main>
 
@@ -196,6 +212,67 @@
 						<p><span class="font-green">UPTIME:</span> <span class="font-golden-orange uppercase"
 								id="system-uptime-detailed">--</span></p>
 					</div>
+					<div class="lcars-text-bar" style="margin-top: 40px;">
+						<h3>System & UI Updates</h3>
+					</div>
+					
+					<div style="margin: 20px 0;">
+						<p class="flush" style="font-size: 0.9em; color: var(--lcars-light-gray); margin-bottom: 15px;">
+							LAST CHECK: <span class="font-golden-orange" id="update-last-check-time">NEVER</span>
+						</p>
+
+						<div class="buttons" style="margin-bottom: 25px; display: flex; gap: 10px; flex-wrap: wrap;">
+							<button onclick="checkForUpdates()" class="button-almond" id="btn-check-updates">CHECK FOR UPDATES</button>
+							<button onclick="applyUpdates('all')" class="button-golden-orange" id="btn-update-all">UPDATE ALL</button>
+							<button onclick="applyUpdates('system')" class="button-almond" id="btn-update-system">UPDATE SYSTEM</button>
+							<button onclick="applyUpdates('wtl_ui')" class="button-almond" id="btn-update-ui">UPDATE WTL UI</button>
+						</div>
+
+						<!-- Update Status Grid -->
+						<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 25px;">
+							<!-- Raspberry Pi OS Card -->
+							<div style="padding: 20px; border: 2px solid var(--orange); background: rgba(0,0,0,0.5);">
+								<h4 class="font-golden-orange" style="font-size: 1.2rem; margin-bottom: 10px;">RASPBERRY PI OS</h4>
+								<p><span class="font-green">STATUS:</span> <span class="font-golden-orange uppercase" id="system-update-status-badge">UNKNOWN</span></p>
+								<p><span class="font-green">PACKAGES AVAILABLE:</span> <span class="font-golden-orange" id="system-update-count">0</span></p>
+								<div id="system-packages-list" style="margin-top: 15px; max-height: 160px; overflow-y: auto; background: #050505; padding: 10px; border: 1px solid var(--gray); font-family: monospace; font-size: 0.85rem; color: var(--golden-orange);">
+									<span style="color: #888;">No package list available. Click "CHECK FOR UPDATES".</span>
+								</div>
+							</div>
+
+							<!-- WTL UI Card -->
+							<div style="padding: 20px; border: 2px solid var(--orange); background: rgba(0,0,0,0.5);">
+								<h4 class="font-golden-orange" style="font-size: 1.2rem; margin-bottom: 10px;">WTL UI INTERFACE</h4>
+								<p><span class="font-green">STATUS:</span> <span class="font-golden-orange uppercase" id="ui-update-status-badge">UNKNOWN</span></p>
+								<p><span class="font-green">CURRENT REVISION:</span> <span class="font-golden-orange" id="ui-current-commit">--</span></p>
+								<p><span class="font-green">LATEST REMOTE:</span> <span class="font-golden-orange" id="ui-remote-commit">--</span></p>
+								<div id="ui-changelog-list" style="margin-top: 15px; max-height: 120px; overflow-y: auto; background: #050505; padding: 10px; border: 1px solid var(--gray); font-family: monospace; font-size: 0.85rem; color: var(--golden-orange);">
+									<span style="color: #888;">No changelog available. Click "CHECK FOR UPDATES".</span>
+								</div>
+							</div>
+						</div>
+
+						<!-- Post-Update Alert Banner -->
+						<div id="update-reboot-banner" style="display: none; padding: 15px 20px; border: 2px solid var(--red); background: rgba(200, 0, 0, 0.2); margin-bottom: 25px;">
+							<p class="flush font-red uppercase go-big" style="font-size: 1.2rem;">REBOOT OR RESTART RECOMMENDED</p>
+							<p style="margin-top: 5px; font-size: 0.9em; color: #fff;">System kernel or packages updated. A system reboot is recommended to apply changes.</p>
+							<div class="buttons" style="margin-top: 15px; display: flex; gap: 10px;">
+								<button onclick="rebootSystem()" class="button-almond">REBOOT SYSTEM NOW</button>
+								<button onclick="restartServer()" class="button-almond">RESTART BACKEND API</button>
+							</div>
+						</div>
+
+						<!-- Real-Time Telemetry Log Console -->
+						<div class="lcars-text-bar">
+							<h3>Update Console Telemetry</h3>
+						</div>
+						<div style="margin-top: 15px;">
+							<div id="update-console-status" class="font-golden-orange" style="margin-bottom: 8px; font-size: 0.9em;">STATUS: IDLE</div>
+							<div id="update-console-log" style="height: 180px; overflow-y: auto; background-color: #050505; color: var(--golden-orange); border: 2px solid var(--orange); padding: 12px; font-family: monospace; font-size: 0.85rem; line-height: 1.4; white-space: pre-wrap;">[LCARS TELEMETRY LOG READY]
+Waiting for user command...</div>
+						</div>
+					</div>
+
 					<div class="lcars-text-bar" style="margin-top: 40px;">
 						<h3>System Controls</h3>
 					</div>
@@ -634,7 +711,7 @@
 	</section>
 
 	<!-- Screensaver / Standby Mode -->
-	<div id="screensaver" class="screensaver hidden" onclick="exitStandby()" style="cursor: pointer;">
+	<div id="screensaver" class="screensaver hidden" style="cursor: pointer;">
 		<div class="screensaver-content">
 			<div class="screensaver-time" id="screensaver-time">00:00:00</div>
 			<div class="screensaver-date" id="screensaver-date">--</div>
@@ -666,7 +743,7 @@
 	</div>
 
 	<script type="text/javascript" src="scripts/lcars.js?v=5"></script>
-	<script type="text/javascript" src="scripts/index_scripts.js?v=8"></script>
+	<script type="text/javascript" src="scripts/index_scripts.js?v=9"></script>
 	<div class="headtrim"> </div>
 	<div class="baseboard"> </div>
 	<audio id="audio1" src="https://www.thelcars.com/assets/beep1.mp3" preload="auto"></audio>

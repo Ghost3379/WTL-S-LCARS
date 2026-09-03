@@ -598,3 +598,79 @@ def set_fan_rgb_led():
             return jsonify({'error': 'Failed to set fan RGB LED state'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+def control_batch(display_state=None, rgb_state=None, fan_mode=None):
+    """
+    Control Pironman in a single batch command to prevent multiple daemon restarts.
+    """
+    try:
+        cmd = ['sudo', PIRONMAN_CMD]
+        
+        if display_state is not None:
+            oled_state = 'True' if display_state == 'on' else 'False'
+            cmd.extend(['--oled-enable', oled_state])
+            
+        if rgb_state is not None:
+            rgb_enable = 'True' if rgb_state == 'on' else 'False'
+            cmd.extend(['--rgb-enable', rgb_enable])
+            
+        if fan_mode is not None:
+            # Map intuitive string to Pironman mode integer (0=Always On, 1=Performance, 2=Cool)
+            mode_map = {'on': '0', 'auto': '1', 'off': '2'}
+            mode_int = mode_map.get(fan_mode, '1')
+            cmd.extend(['--gpio-fan-mode', mode_int])
+            
+        if len(cmd) > 2: # Has arguments
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False
+            )
+            
+            if result.returncode != 0:
+                print(f"Pironman batch command failed: {result.stderr}")
+                return False
+                
+            # Restart pironman5 service to apply changes once
+            restart_result = subprocess.run(
+                ['sudo', 'systemctl', 'restart', 'pironman5'],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False
+            )
+            
+            if restart_result.returncode != 0:
+                print(f"Failed to restart pironman5 service: {restart_result.stderr}")
+                # Still return True as config was updated
+                
+        return True
+    except subprocess.TimeoutExpired:
+        print("Pironman batch command timed out")
+        return False
+    except Exception as e:
+        print(f"Error controlling batch: {e}")
+        return False
+
+@bp.route('/batch', methods=['POST'])
+def set_batch():
+    """Set multiple Pironman settings at once to prevent rapid daemon restarts"""
+    try:
+        data = request.get_json()
+        display_state = data.get('display')
+        rgb_state = data.get('rgb')
+        fan_mode = data.get('fan')
+        
+        # Only run if at least one parameter is provided
+        if not any(x is not None for x in [display_state, rgb_state, fan_mode]):
+            return jsonify({'status': 'ok', 'message': 'No changes requested'})
+            
+        success = control_batch(display_state=display_state, rgb_state=rgb_state, fan_mode=fan_mode)
+        if success:
+            return jsonify({'status': 'ok'})
+        else:
+            return jsonify({'error': 'Failed to execute batch command'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
