@@ -15,7 +15,19 @@ import time
 import re
 
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), '..', 'data', 'settings.json')
-REPO_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+
+def resolve_repo_path():
+    candidates = [
+        '/home/admin/Desktop/WTl-s-LCARS',
+        os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')),
+        '/var/www/html'
+    ]
+    for c in candidates:
+        if os.path.exists(os.path.join(c, '.git')):
+            return c
+    return candidates[0]
+
+REPO_PATH = resolve_repo_path()
 
 bp = Blueprint('system', __name__)
 
@@ -354,22 +366,30 @@ def log_update_msg(msg):
             UPDATE_STATE['log'] = UPDATE_STATE['log'][-500:]
 
 
-def perform_check_updates():
+def perform_check_updates(clear_log=True, is_post_update=False):
     """Worker function to check for Raspberry Pi system & WTL UI updates"""
     with update_lock:
-        UPDATE_STATE['status'] = 'checking'
-        UPDATE_STATE['progress'] = 'Checking Raspberry Pi system package updates...'
-        UPDATE_STATE['log'] = []
+        if not is_post_update:
+            UPDATE_STATE['status'] = 'checking'
+            UPDATE_STATE['progress'] = 'Checking Raspberry Pi system package updates...'
+            if clear_log:
+                UPDATE_STATE['log'] = []
+        else:
+            UPDATE_STATE['progress'] = 'Verifying post-update system package state...'
     
-    log_update_msg("=== LCARS TELEMETRY: UPDATE CHECK INITIATED ===")
+    if is_post_update:
+        log_update_msg("=== LCARS TELEMETRY: POST-UPDATE VERIFICATION INITIATED ===")
+    else:
+        log_update_msg("=== LCARS TELEMETRY: UPDATE CHECK INITIATED ===")
     
     # 1. Check Raspberry Pi System Package Updates (apt)
     try:
-        log_update_msg("Updating apt package lists (sudo apt-get update)...")
-        res_apt_upd = subprocess.run(['sudo', '-n', 'apt-get', 'update'], 
-                                     capture_output=True, text=True, timeout=45)
-        if res_apt_upd.returncode != 0 and res_apt_upd.stderr:
-            log_update_msg(f"Apt update notice: {res_apt_upd.stderr.strip()[:200]}")
+        if not is_post_update:
+            log_update_msg("Updating apt package lists (sudo apt-get update)...")
+            res_apt_upd = subprocess.run(['sudo', '-n', 'apt-get', 'update'], 
+                                         capture_output=True, text=True, timeout=45)
+            if res_apt_upd.returncode != 0 and res_apt_upd.stderr:
+                log_update_msg(f"Apt update notice: {res_apt_upd.stderr.strip()[:200]}")
             
         log_update_msg("Querying upgradable packages (apt list --upgradable)...")
         res_apt_list = subprocess.run(['apt', 'list', '--upgradable'], 
@@ -412,7 +432,8 @@ def perform_check_updates():
 
     # 2. Check WTL UI Repository Updates (git)
     with update_lock:
-        UPDATE_STATE['progress'] = 'Checking WTL UI git repository...'
+        if not is_post_update:
+            UPDATE_STATE['progress'] = 'Checking WTL UI git repository...'
     try:
         log_update_msg(f"Checking WTL UI repository at {REPO_PATH}...")
         
@@ -472,10 +493,19 @@ def perform_check_updates():
     with update_lock:
         UPDATE_STATE['reboot_required'] = reboot_req
         UPDATE_STATE['last_check'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        UPDATE_STATE['status'] = 'idle'
-        UPDATE_STATE['progress'] = 'Check completed.'
+        if is_post_update:
+            UPDATE_STATE['status'] = 'completed'
+            UPDATE_STATE['progress'] = 'Updates completed and verified.'
+        else:
+            UPDATE_STATE['status'] = 'idle'
+            UPDATE_STATE['progress'] = 'Check completed.'
         
-    log_update_msg("=== LCARS TELEMETRY: CHECK COMPLETED ===")
+    if is_post_update:
+        log_update_msg("=== LCARS TELEMETRY: POST-UPDATE VERIFICATION COMPLETED ===")
+        if reboot_req:
+            log_update_msg("[ALERT] A system restart is required to activate newly installed kernel/system updates.")
+    else:
+        log_update_msg("=== LCARS TELEMETRY: CHECK COMPLETED ===")
 
 
 def perform_apply_updates(target):
@@ -510,7 +540,7 @@ def perform_apply_updates(target):
             www_path = '/var/www/html'
             if os.path.exists(www_path) and os.path.abspath(www_path) != REPO_PATH:
                 log_update_msg("Syncing updated repository files to web server root (/var/www/html)...")
-                subprocess.run(f"sudo cp -r {REPO_PATH}/* {www_path}/ && sudo chown -R www-data:www-data {www_path}", 
+                subprocess.run(f"sudo cp -ru {REPO_PATH}/* {www_path}/ && sudo chown -R www-data:www-data {www_path}", 
                                shell=True, capture_output=True, text=True)
                 log_update_msg("Web root sync complete.")
         except Exception as e:
@@ -518,8 +548,9 @@ def perform_apply_updates(target):
 
     if target in ('system', 'all'):
         try:
-            log_update_msg("Upgrading Raspberry Pi system packages (sudo apt-get upgrade -y)...")
-            apt_proc = subprocess.Popen('sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y', 
+            # Note: We use dist-upgrade here so that kernel images and dependencies that are held back by plain upgrade get installed
+            log_update_msg("Upgrading Raspberry Pi system packages (sudo apt-get dist-upgrade -y)...")
+            apt_proc = subprocess.Popen('sudo DEBIAN_FRONTEND=noninteractive apt-get dist-upgrade -y', 
                                         shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
             for line in iter(apt_proc.stdout.readline, ''):
                 if line:
@@ -529,6 +560,19 @@ def perform_apply_updates(target):
             apt_proc.stdout.close()
             apt_proc.wait()
             log_update_msg("Raspberry Pi system packages upgrade completed.")
+
+            # Autoremove obsolete dependencies
+            log_update_msg("Removing obsolete packages (sudo apt-get autoremove -y)...")
+            auto_proc = subprocess.Popen('sudo DEBIAN_FRONTEND=noninteractive apt-get autoremove -y',
+                                         shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            for line in iter(auto_proc.stdout.readline, ''):
+                if line:
+                    clean_line = line.strip()
+                    if clean_line:
+                        log_update_msg(f"[APT] {clean_line}")
+            auto_proc.stdout.close()
+            auto_proc.wait()
+            log_update_msg("Package cleanup completed.")
         except Exception as e:
             log_update_msg(f"Error during system package upgrade: {e}")
 
@@ -536,13 +580,14 @@ def perform_apply_updates(target):
     with update_lock:
         UPDATE_STATE['reboot_required'] = reboot_req
         UPDATE_STATE['status'] = 'completed'
-        UPDATE_STATE['progress'] = 'Updates completed.'
+        UPDATE_STATE['progress'] = 'Updates applied.'
 
-    log_update_msg("=== LCARS TELEMETRY: ALL UPDATES COMPLETED ===")
+    log_update_msg("=== LCARS TELEMETRY: ALL UPDATES APPLIED ===")
     if reboot_req:
         log_update_msg("[ALERT] System restart is recommended to finalize kernel/system updates.")
 
-    perform_check_updates()
+    # Perform post-update verification without wiping log output
+    perform_check_updates(clear_log=False, is_post_update=True)
 
 
 @bp.route('/updates/status', methods=['GET'])

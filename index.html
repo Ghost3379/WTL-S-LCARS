@@ -2,6 +2,7 @@
 <html>
 
 <head>
+	<meta charset="utf-8">
 	<title>WTL-S-LCARS | Wayne Tech Lab - Lab Core Access Retrieval System</title>
 	<meta name="description" content="Wayne Tech Lab - Lab Core Access Retrieval System (LCARS) Interface">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -9,7 +10,7 @@
 	<meta name="format-detection" content="date=no">
 	<link rel="icon" type="image/png" href="assets/WT-website-logo.png">
 	<link rel="shortcut icon" type="image/png" href="assets/WT-website-logo.png">
-	<link rel="stylesheet" type="text/css" href="css/classic.css?v=9">
+	<link rel="stylesheet" type="text/css" href="css/classic.css?v=20">
 </head>
 
 <body>
@@ -29,6 +30,7 @@
 					<nav>
 						<button onclick="switchSection('dashboard')" id="nav-dashboard">dashboard</button>
 						<button onclick="switchSection('projects')" id="nav-projects">projects</button>
+						<button onclick="switchSection('inventory')" id="nav-inventory">inventory</button>
 						<button onclick="switchSection('apps')" id="nav-apps">apps</button>
 						<button onclick="switchSection('system')" id="nav-system">system</button>
 						<button onclick="switchSection('pironman')" id="nav-pironman">pironman</button>
@@ -159,6 +161,92 @@
 					</div>
 				</main>
 
+				<!-- Component Storage & Inventory Section -->
+				<main id="section-inventory" class="content-section">
+					<h1>Component Storage & Inventory</h1>
+
+					<!-- Compact LCARS Status Telemetry Ribbon -->
+					<div class="inventory-telemetry-ribbon">
+						<div class="inventory-ribbon-item">
+							<span class="inventory-ribbon-label">UNIQUE PARTS</span>
+							<span class="inventory-ribbon-value" id="inventory-total-count">0</span>
+						</div>
+						<div class="inventory-ribbon-item">
+							<span class="inventory-ribbon-label">TOTAL STOCK</span>
+							<span class="inventory-ribbon-value" id="inventory-total-qty">0</span>
+						</div>
+						<div class="inventory-ribbon-item">
+							<span class="inventory-ribbon-label">LOW STOCK ALERTS</span>
+							<span class="inventory-ribbon-value font-orange" id="inventory-low-stock-count">0</span>
+						</div>
+						<div class="inventory-ribbon-item">
+							<span class="inventory-ribbon-label">EST. VALUE</span>
+							<span class="inventory-ribbon-value font-golden-orange" id="inventory-total-value">0.00 €</span>
+						</div>
+					</div>
+
+					<!-- Streamlined Controls & Tools Toolbar -->
+					<div class="inventory-toolbar">
+						<div class="inventory-search-box">
+							<input type="text" id="inventory-search-input" class="inventory-input" placeholder="SEARCH BY NAME, VALUE, FOOTPRINT, LOCATION, MPN..." oninput="onInventorySearchInput()">
+							<button class="inventory-clear-btn" onclick="clearInventorySearch()" title="Clear search">X</button>
+						</div>
+						<div class="inventory-toolbar-actions">
+							<select id="inventory-location-filter" class="inventory-select" onchange="onInventoryLocationChange()">
+								<option value="all">ALL LOCATIONS</option>
+							</select>
+							<button id="inventory-low-stock-btn" class="button-almond inventory-toggle-btn" onclick="toggleLowStockFilter()">LOW STOCK</button>
+							<button type="button" onclick="openComponentModal()" class="button-almond inventory-btn-primary">+ NEW PART</button>
+							<button type="button" onclick="toggleInventoryTools()" class="button-almond" id="inventory-tools-toggle-btn" title="Spreadsheet & import/export tools">TOOLS ▾</button>
+						</div>
+					</div>
+
+					<!-- Collapsible Secondary Tools Drawer (Clean & Uncluttered) -->
+					<div id="inventory-tools-drawer" class="inventory-tools-drawer" style="display: none;">
+						<button type="button" onclick="openInLibreOfficeCalc()" class="button-almond">📊 OPEN IN LIBREOFFICE CALC</button>
+						<button type="button" onclick="downloadSpreadsheetODS()" class="button-almond">DOWNLOAD .ODS</button>
+						<button type="button" onclick="exportInventoryJSON()" class="button-almond">EXPORT JSON</button>
+						<button type="button" onclick="triggerImportInventory()" class="button-almond">IMPORT JSON</button>
+						<input type="file" id="inventory-import-file" accept=".json" style="display: none;" onchange="handleInventoryImport(event)">
+					</div>
+
+					<!-- Prominent Categories Section (Bigger Buttons) -->
+					<div id="inventory-categories-container">
+						<div class="lcars-text-bar" style="margin-top: 20px; margin-bottom: 12px;">
+							<h2>Component Categories</h2>
+						</div>
+						<div class="inventory-category-grid" id="inventory-category-grid">
+							<!-- Dynamically populated with large category tiles -->
+						</div>
+					</div>
+
+					<!-- Active Category Breadcrumb / Back Bar (Shown when a category is selected) -->
+					<div id="inventory-active-category-bar" class="inventory-active-category-bar" style="display: none;">
+						<button type="button" class="button-almond" onclick="selectInventoryCategory('all')">← ALL CATEGORIES</button>
+						<span id="inventory-active-category-label" class="inventory-category-label">CATEGORY: ALL</span>
+					</div>
+
+					<!-- Start Screen: Recently Viewed Components -->
+					<div id="inventory-recent-container" style="margin-top: 25px;">
+						<div class="lcars-text-bar" style="margin-bottom: 15px;">
+							<h2 id="inventory-recent-title">Recently Viewed Components</h2>
+						</div>
+						<div id="inventory-recent-grid" class="inventory-grid">
+							<!-- Populated with recent components -->
+						</div>
+					</div>
+
+					<!-- Catalog Section (Shown when category filtered or search active) -->
+					<div id="inventory-catalog-container" style="display: none; margin-top: 25px;">
+						<div class="lcars-text-bar" style="margin-bottom: 15px;">
+							<h2 id="inventory-section-title">Component Catalog (<span id="inventory-filtered-count">0</span>)</h2>
+						</div>
+						<div id="inventory-grid" class="inventory-grid">
+							<!-- Populated dynamically with preview cards -->
+						</div>
+					</div>
+				</main>
+
 				<!-- App Launcher Section -->
 				<main id="section-apps" class="content-section">
 					<h1>App Launcher</h1>
@@ -170,6 +258,9 @@
 						<button onclick="openKicadLastProject()" class="button-almond">OPEN KICAD (LAST
 							PROJECT)</button>
 						<button onclick="openBambuStudio()" class="button-almond">OPEN BAMBU STUDIO</button>
+						<button onclick="openLibreOfficeCalc()" class="button-almond">OPEN LIBREOFFICE CALC (SPREADSHEETS)</button>
+						<button onclick="openLibreOfficeWriter()" class="button-almond">OPEN LIBREOFFICE WRITER (DOCUMENTS)</button>
+						<button onclick="openLibreOfficeImpress()" class="button-almond">OPEN LIBREOFFICE IMPRESS (PRESENTATIONS)</button>
 						<button onclick="openPDFViewer()" class="button-almond">LOAD / VIEW PDF</button>
 					</div>
 					<div class="lcars-text-bar" style="margin-top: 40px;">
@@ -742,14 +833,134 @@ Waiting for user command...</div>
 		</div>
 	</div>
 
-	<script type="text/javascript" src="scripts/lcars.js?v=5"></script>
-	<script type="text/javascript" src="scripts/index_scripts.js?v=9"></script>
+	<!-- Dedicated Inventory Component Modal -->
+	<div id="inventory-modal" class="lcars-modal hidden">
+		<div class="lcars-modal-overlay" onclick="closeComponentModal()"></div>
+		<div class="lcars-modal-content inventory-modal-wide">
+			<div class="lcars-modal-header">
+				<div class="lcars-modal-title" id="inventory-modal-title">COMPONENT SPECIFICATION</div>
+				<button class="lcars-modal-close" onclick="closeComponentModal()">X</button>
+			</div>
+			<div class="lcars-modal-body">
+				<form id="inventory-component-form" onsubmit="event.preventDefault(); saveComponentForm();">
+					<input type="hidden" id="inv-item-id" value="">
+					<div class="inventory-form-grid">
+						<div class="inventory-form-group full-width">
+							<label for="inv-name">PART NAME / IDENTIFIER *</label>
+							<input type="text" id="inv-name" class="inventory-input" required placeholder="e.g. 10kΩ Resistor, ESP32-WROOM-32E, AMS1117-3.3">
+						</div>
+
+						<div class="inventory-form-group">
+							<label for="inv-category">CATEGORY *</label>
+							<select id="inv-category" class="inventory-select" required>
+								<option value="Resistors">Resistors</option>
+								<option value="Capacitors">Capacitors</option>
+								<option value="Semiconductors & ICs">Semiconductors & ICs</option>
+								<option value="Microcontrollers & Modules">Microcontrollers & Modules</option>
+								<option value="Diodes & LEDs">Diodes & LEDs</option>
+								<option value="Connectors & Headers">Connectors & Headers</option>
+								<option value="Custom PCBs">Custom PCBs</option>
+								<option value="Hardware & Fasteners">Hardware & Fasteners</option>
+								<option value="Sensors">Sensors</option>
+								<option value="Other">Other</option>
+							</select>
+						</div>
+
+						<div class="inventory-form-group">
+							<label for="inv-value">VALUE / RATING / SPEC</label>
+							<input type="text" id="inv-value" class="inventory-input" placeholder="e.g. 10kΩ 1% 1/8W, 100nF 50V, 3.3V 1A">
+						</div>
+
+						<div class="inventory-form-group">
+							<label for="inv-package">PACKAGE / FOOTPRINT</label>
+							<input type="text" id="inv-package" class="inventory-input" placeholder="e.g. 0805, 0603, DIP-8, SOT-223, Through-Hole">
+						</div>
+
+						<div class="inventory-form-group">
+							<label for="inv-location">STORAGE LOCATION</label>
+							<input type="text" id="inv-location" list="inv-locations-datalist" class="inventory-input" placeholder="e.g. Cabinet 1 > Drawer A2, Bin 14">
+							<datalist id="inv-locations-datalist"></datalist>
+						</div>
+
+						<div class="inventory-form-group">
+							<label for="inv-quantity">QUANTITY IN STOCK</label>
+							<input type="number" id="inv-quantity" min="0" value="0" class="inventory-input">
+						</div>
+
+						<div class="inventory-form-group">
+							<label for="inv-min-quantity">LOW-STOCK THRESHOLD</label>
+							<input type="number" id="inv-min-quantity" min="0" value="5" class="inventory-input">
+						</div>
+
+						<div class="inventory-form-group">
+							<label for="inv-price">UNIT PRICE (€ / $)</label>
+							<input type="number" id="inv-price" step="0.001" min="0" value="0.00" class="inventory-input" placeholder="0.00">
+						</div>
+
+						<div class="inventory-form-group">
+							<label for="inv-manufacturer">MANUFACTURER</label>
+							<input type="text" id="inv-manufacturer" class="inventory-input" placeholder="e.g. Yageo, Espressif, Texas Instruments">
+						</div>
+
+						<div class="inventory-form-group">
+							<label for="inv-mpn">MANUFACTURER PART # (MPN)</label>
+							<input type="text" id="inv-mpn" class="inventory-input" placeholder="e.g. RC0805FR-0710KL">
+						</div>
+
+						<div class="inventory-form-group">
+							<label for="inv-purchase-url">PURCHASE / SUPPLIER URL</label>
+							<input type="url" id="inv-purchase-url" class="inventory-input" placeholder="https://www.lcsc.com/product/...">
+						</div>
+
+						<div class="inventory-form-group">
+							<label for="inv-datasheet-url">DATASHEET URL</label>
+							<input type="url" id="inv-datasheet-url" class="inventory-input" placeholder="https://.../datasheet.pdf">
+						</div>
+
+						<div class="inventory-form-group full-width">
+							<label for="inv-notes">DESCRIPTION & PINOUT NOTES</label>
+							<textarea id="inv-notes" class="inventory-textarea" rows="2" placeholder="Application notes, pinouts, tolerances, batch info..."></textarea>
+						</div>
+					</div>
+				</form>
+			</div>
+			<div class="lcars-modal-footer">
+				<button class="button-almond" onclick="saveComponentForm()">SAVE COMPONENT</button>
+				<button class="button-almond" onclick="closeComponentModal()">CANCEL</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- Dedicated Component Spec Detail Modal -->
+	<div id="component-detail-modal" class="lcars-modal hidden">
+		<div class="lcars-modal-overlay" onclick="closeComponentDetailModal()"></div>
+		<div class="lcars-modal-content inventory-modal-wide">
+			<div class="lcars-modal-header">
+				<div class="lcars-modal-title" id="component-detail-title">COMPONENT TELEMETRY</div>
+				<button class="lcars-modal-close" onclick="closeComponentDetailModal()">X</button>
+			</div>
+			<div class="lcars-modal-body" id="component-detail-body">
+				<!-- Dynamically populated detail telemetry view -->
+			</div>
+			<div class="lcars-modal-footer" id="component-detail-footer">
+				<button type="button" class="button-almond" id="component-detail-edit-btn">EDIT</button>
+				<button type="button" class="button-almond" onclick="closeComponentDetailModal()">CLOSE</button>
+			</div>
+		</div>
+	</div>
+
+	<script type="text/javascript" src="scripts/lcars.js?v=21"></script>
+	<script type="text/javascript" src="scripts/index_scripts.js?v=21"></script>
 	<div class="headtrim"> </div>
 	<div class="baseboard"> </div>
 	<audio id="audio1" src="https://www.thelcars.com/assets/beep1.mp3" preload="auto"></audio>
 	<audio id="audio2" src="https://www.thelcars.com/assets/beep2.mp3" preload="auto"></audio>
 	<audio id="audio3" src="https://www.thelcars.com/assets/beep3.mp3" preload="auto"></audio>
 	<audio id="audio4" src="https://www.thelcars.com/assets/beep4.mp3" preload="auto"></audio>
+	<audio id="sfx-key-1" src="assets/sfx/key-beep-1.wav" preload="auto"></audio>
+	<audio id="sfx-key-2" src="assets/sfx/key-beep-2.wav" preload="auto"></audio>
+	<audio id="sfx-cancel" src="assets/sfx/key-canceld.wav" preload="auto"></audio>
+	<audio id="sfx-popup" src="assets/sfx/pop-up-occurs.mp3" preload="auto"></audio>
 
 </body>
 

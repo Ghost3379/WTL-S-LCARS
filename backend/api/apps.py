@@ -14,6 +14,9 @@ bp = Blueprint('apps', __name__)
 KICAD_PATH = os.environ.get('KICAD_PATH', '/usr/bin/kicad')
 BAMBU_STUDIO_PATH = os.environ.get('BAMBU_STUDIO_PATH', '/usr/bin/bambu-studio')
 PDF_VIEWER_PATH = os.environ.get('PDF_VIEWER_PATH', '/usr/bin/evince')
+LIBREOFFICE_CALC_PATH = os.environ.get('LIBREOFFICE_CALC_PATH', '/usr/bin/localc')
+LIBREOFFICE_WRITER_PATH = os.environ.get('LIBREOFFICE_WRITER_PATH', '/usr/bin/lowriter')
+LIBREOFFICE_IMPRESS_PATH = os.environ.get('LIBREOFFICE_IMPRESS_PATH', '/usr/bin/loimpress')
 
 # Last project tracking
 LAST_PROJECTS_FILE = os.path.join(os.path.dirname(__file__), '..', 'data', 'last_projects.json')
@@ -137,5 +140,71 @@ def open_pdf_viewer():
             return jsonify({'status': 'opened'})
         else:
             return jsonify({'error': 'Failed to open PDF viewer'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/libreoffice-calc', methods=['POST'])
+def open_libreoffice_calc():
+    """Open LibreOffice Calc"""
+    try:
+        path = LIBREOFFICE_CALC_PATH
+        if not os.path.exists(path):
+            path = '/usr/bin/libreoffice'
+        if not os.path.exists(path):
+            return jsonify({'error': 'LibreOffice Calc not found'}), 404
+        
+        data = request.get_json(silent=True) or {}
+        file_path = data.get('path')
+        args = [file_path] if file_path and os.path.exists(file_path) else None
+
+        success = launch_app(path, args)
+        if success:
+            return jsonify({'status': 'opened'})
+        else:
+            return jsonify({'error': 'Failed to open LibreOffice Calc'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/libreoffice-writer', methods=['POST'])
+def open_libreoffice_writer():
+    """Open LibreOffice Writer (Documents)"""
+    try:
+        path = LIBREOFFICE_WRITER_PATH
+        if not os.path.exists(path):
+            path = '/usr/bin/libreoffice'
+        if not os.path.exists(path):
+            return jsonify({'error': 'LibreOffice Writer not found'}), 404
+        
+        data = request.get_json(silent=True) or {}
+        file_path = data.get('path')
+        args = [file_path] if file_path and os.path.exists(file_path) else None
+
+        success = launch_app(path, args)
+        if success:
+            return jsonify({'status': 'opened'})
+        else:
+            return jsonify({'error': 'Failed to open LibreOffice Writer'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/libreoffice-impress', methods=['POST'])
+def open_libreoffice_impress():
+    """Open LibreOffice Impress (Presentations)"""
+    try:
+        path = LIBREOFFICE_IMPRESS_PATH
+        if not os.path.exists(path):
+            path = '/usr/bin/libreoffice'
+        if not os.path.exists(path):
+            return jsonify({'error': 'LibreOffice Impress not found'}), 404
+        
+        data = request.get_json(silent=True) or {}
+        file_path = data.get('path')
+        args = [file_path] if file_path and os.path.exists(file_path) else None
+
+        success = launch_app(path, args)
+        if success:
+            return jsonify({'status': 'opened'})
+        else:
+            return jsonify({'error': 'Failed to open LibreOffice Impress'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500

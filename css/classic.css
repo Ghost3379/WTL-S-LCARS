@@ -3611,40 +3611,49 @@ footer:has(.footer-frame) {
 	position: relative !important;
 	background-color: black !important;
 	border: 3px solid var(--orange) !important;
-	border-radius: 15px !important;
-	box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(255, 136, 0, 0.3) !important;
-	min-width: 400px !important;
+	border-radius: 12px !important;
+	box-shadow: 0 10px 40px rgba(0, 0, 0, 0.85), 0 0 20px rgba(255, 136, 0, 0.35) !important;
+	min-width: 320px !important;
 	max-width: 600px !important;
+	max-height: 88vh !important;
+	display: flex !important;
+	flex-direction: column !important;
 	z-index: 10001 !important;
 	overflow: hidden !important;
+	box-sizing: border-box !important;
 }
 
 .lcars-modal-header {
+	flex-shrink: 0 !important;
 	background-color: var(--orange) !important;
 	color: black !important;
-	padding: 15px 25px !important;
+	padding: 12px 20px !important;
 	display: flex !important;
 	justify-content: space-between !important;
 	align-items: center !important;
 }
 
 .lcars-modal-title {
-	font-size: 1.5rem !important;
+	font-size: 1.25rem !important;
 	font-weight: bold !important;
-	letter-spacing: 0.15em !important;
+	letter-spacing: 0.1em !important;
 	text-transform: uppercase !important;
 	margin: 0 !important;
+	white-space: nowrap !important;
+	overflow: hidden !important;
+	text-overflow: ellipsis !important;
+	max-width: calc(100% - 40px) !important;
 }
 
 .lcars-modal-close {
 	background: transparent !important;
 	border: none !important;
 	color: black !important;
-	font-size: 2rem !important;
+	font-size: 1.6rem !important;
 	cursor: pointer !important;
 	padding: 0 !important;
-	width: 30px !important;
-	height: 30px !important;
+	width: 28px !important;
+	height: 28px !important;
 	line-height: 1 !important;
 	font-weight: bold !important;
 }
@@ -3654,10 +3663,24 @@ footer:has(.footer-frame) {
 }
 
 .lcars-modal-body {
-	padding: 35px 40px !important;
+	flex: 1 1 auto !important;
+	overflow-y: auto !important;
+	padding: 18px 22px !important;
 	color: white !important;
-	text-align: center !important;
+	text-align: left !important;
 	background-color: black !important;
+	box-sizing: border-box !important;
+}
+
+.lcars-modal-body::-webkit-scrollbar {
+	width: 6px;
+}
+.lcars-modal-body::-webkit-scrollbar-thumb {
+	background: var(--orange);
+	border-radius: 3px;
+}
+.lcars-modal-body::-webkit-scrollbar-track {
+	background: #111;
 }
 
 .lcars-modal-message {
@@ -3683,25 +3706,26 @@ footer:has(.footer-frame) {
 }
 
 .lcars-modal-footer {
-	padding: 20px 30px !important;
+	flex-shrink: 0 !important;
+	padding: 12px 20px !important;
 	display: flex !important;
-	gap: 20px !important;
-	justify-content: center !important;
+	gap: 12px !important;
+	justify-content: flex-end !important;
 	border-top: 1px solid rgba(255, 136, 0, 0.3) !important;
-	background-color: #111 !important;
+	background-color: #0c0c0c !important;
 }
 
 .lcars-modal-footer button {
-	min-width: 120px !important;
+	min-width: 100px !important;
 	background-color: var(--african-violet) !important;
 	color: black !important;
 	border: none !important;
-	padding: 12px 30px !important;
-	font-size: 1.2rem !important;
+	padding: 8px 20px !important;
+	font-size: 1rem !important;
 	font-weight: bold !important;
 	cursor: pointer !important;
 	text-transform: uppercase !important;
-	border-radius: 8px !important;
+	border-radius: 4px !important;
 	transition: all 0.2s ease !important;
 }
 
@@ -3887,4 +3911,665 @@ footer:has(.footer-frame) {
 #ui-changelog-list::-webkit-scrollbar-track,
 #update-console-log::-webkit-scrollbar-track {
 	background: #111;
+}
+
+/* ========================================= */
+/* COMPONENT STORAGE & INVENTORY SYSTEM      */
+/* ========================================= */
+
+/* Compact Telemetry Ribbon */
+.inventory-telemetry-ribbon {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+	gap: 10px;
+	margin-bottom: 16px;
+}
+
+.inventory-ribbon-item {
+	background-color: #0e0e0e;
+	border: 1px solid #282828;
+	border-left: 6px solid var(--orange);
+	padding: 8px 12px;
+	border-radius: 4px;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+}
+
+.inventory-ribbon-label {
+	font-size: 0.7rem;
+	font-weight: bold;
+	color: var(--green);
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	margin-bottom: 2px;
+}
+
+.inventory-ribbon-value {
+	font-size: 1.25rem;
+	font-weight: bold;
+	color: var(--golden-orange);
+	line-height: 1.1;
+}
+
+/* Streamlined Controls Toolbar */
+.inventory-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	align-items: center;
+	margin-bottom: 20px;
+}
+
+.inventory-toolbar .inventory-search-box {
+	flex: 2;
+	min-width: 220px;
+	position: relative;
+}
+
+.inventory-toolbar-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+}
+
+.inventory-toolbar-actions .inventory-select {
+	width: auto;
+	min-width: 140px;
+}
+
+.inventory-input,
+.inventory-select,
+.inventory-textarea {
+	width: 100%;
+	padding: 9px 12px;
+	background-color: #000;
+	color: var(--golden-orange);
+	border: 2px solid var(--orange);
+	font-family: inherit;
+	font-size: 0.95rem;
+	text-transform: uppercase;
+	box-sizing: border-box;
+	border-radius: 4px;
+	transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.inventory-textarea {
+	text-transform: none;
+	resize: vertical;
+}
+
+.inventory-input:focus,
+.inventory-select:focus,
+.inventory-textarea:focus {
+	outline: none;
+	border-color: var(--almond);
+	box-shadow: 0 0 8px rgba(255, 170, 0, 0.4);
+}
+
+.inventory-select option {
+	background-color: #111;
+	color: var(--golden-orange);
+}
+
+.inventory-clear-btn {
+	position: absolute;
+	right: 8px;
+	top: 50%;
+	transform: translateY(-50%);
+	background: transparent;
+	border: none;
+	color: var(--orange);
+	font-weight: bold;
+	font-size: 1.1rem;
+	cursor: pointer;
+	padding: 4px 8px;
+}
+
+.inventory-clear-btn:hover {
+	color: var(--red);
+}
+
+.inventory-toggle-btn.active {
+	background-color: var(--orange) !important;
+	color: #000 !important;
+	font-weight: bold;
+}
+
+.inventory-btn-primary {
+	background-color: var(--orange) !important;
+	color: #000 !important;
+	font-weight: bold !important;
+}
+
+.inventory-btn-primary:hover {
+	background-color: var(--almond) !important;
+}
+
+.inventory-tools-drawer {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	background-color: #111;
+	border: 1px solid #333;
+	border-left: 6px solid var(--african-violet);
+	padding: 10px 14px;
+	border-radius: 4px;
+	margin-bottom: 18px;
+}
+
+/* Category Grid & Buttons (No Overflow, Proportional) */
+.inventory-category-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(225px, 1fr));
+	gap: 12px;
+	margin-bottom: 25px;
+}
+
+.inventory-category-tile {
+	background-color: #111;
+	border: 1px solid #333;
+	border-left: 8px solid var(--orange);
+	padding: 12px 14px;
+	border-radius: 5px;
+	cursor: pointer;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	min-height: 88px;
+	transition: all 0.2s ease;
+	text-align: left;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+	box-sizing: border-box;
+	overflow: hidden;
+}
+
+.inventory-category-tile:hover {
+	background-color: #1c1c1c;
+	border-color: var(--orange);
+	transform: translateY(-2px);
+	box-shadow: 0 4px 12px rgba(255, 153, 0, 0.25);
+}
+
+.inventory-category-tile.active {
+	background-color: var(--orange);
+	border-color: var(--orange);
+}
+
+.inventory-category-tile.active .tile-title {
+	color: #000 !important;
+}
+
+.inventory-category-tile.active .tile-count {
+	background-color: #000 !important;
+	color: var(--golden-orange) !important;
+	border-color: #000 !important;
+}
+
+.inventory-category-tile .tile-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 6px;
+	width: 100%;
+}
+
+.inventory-category-tile .tile-code {
+	font-size: 0.72rem;
+	color: var(--african-violet);
+	font-weight: bold;
+	letter-spacing: 0.06em;
+}
+
+.inventory-category-tile .tile-count {
+	font-size: 0.75rem;
+	font-weight: bold;
+	padding: 2px 8px;
+	border-radius: 10px;
+	background-color: #222;
+	color: var(--almond);
+	border: 1px solid #444;
+}
+
+.inventory-category-tile .tile-title {
+	font-size: 0.95rem;
+	font-weight: bold;
+	color: var(--golden-orange);
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
+	line-height: 1.25;
+	word-break: normal;
+	overflow-wrap: break-word;
+}
+
+/* Active Category Bar */
+.inventory-active-category-bar {
+	display: flex;
+	align-items: center;
+	gap: 15px;
+	background-color: #111;
+	border: 2px solid var(--orange);
+	border-left: 8px solid var(--african-violet);
+	padding: 8px 14px;
+	border-radius: 4px;
+	margin-bottom: 18px;
+}
+
+.inventory-category-label {
+	font-size: 1.1rem;
+	font-weight: bold;
+	color: var(--golden-orange);
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+}
+
+/* Component Grid & Clean Preview Cards */
+.inventory-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+	gap: 14px;
+	margin-bottom: 30px;
+}
+
+.inventory-card {
+	background-color: #0d0d0d;
+	border: 1px solid #282828;
+	border-left: 6px solid var(--orange);
+	padding: 14px;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	border-radius: 4px;
+	transition: border-color 0.2s, box-shadow 0.2s;
+	position: relative;
+	box-sizing: border-box;
+}
+
+.inventory-card:hover {
+	border-color: var(--orange);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+}
+
+.inventory-card-top {
+	margin-bottom: 10px;
+	cursor: pointer;
+	transition: opacity 0.15s;
+}
+
+.inventory-card-top:hover {
+	opacity: 0.92;
+}
+
+.inventory-card-top:hover .inventory-card-title {
+	color: #fff;
+}
+
+.inventory-card-header-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 4px;
+}
+
+.inventory-card-category {
+	font-size: 0.72rem;
+	font-weight: bold;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	color: var(--african-violet);
+}
+
+.inventory-card-title {
+	font-size: 1.05rem;
+	font-weight: bold;
+	color: var(--golden-orange);
+	text-transform: uppercase;
+	margin: 2px 0 6px 0;
+	line-height: 1.25;
+	word-break: break-word;
+}
+
+.inventory-card-meta-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+	font-size: 0.78rem;
+}
+
+.inventory-card-val {
+	color: var(--golden-orange);
+	font-weight: bold;
+}
+
+.inventory-card-pkg {
+	color: #aaa;
+}
+
+.inventory-card-loc {
+	color: var(--almond);
+	font-size: 0.74rem;
+}
+
+.inventory-stock-badge {
+	padding: 2px 8px;
+	border-radius: 8px;
+	font-size: 0.7rem;
+	font-weight: bold;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	display: inline-block;
+}
+
+.inventory-stock-badge.in-stock {
+	background-color: rgba(0, 204, 102, 0.2);
+	color: var(--green);
+	border: 1px solid var(--green);
+}
+
+.inventory-stock-badge.low-stock {
+	background-color: rgba(255, 153, 0, 0.25);
+	color: var(--orange);
+	border: 1px solid var(--orange);
+	animation: lcars-pulse 2s infinite;
+}
+
+.inventory-stock-badge.out-of-stock {
+	background-color: rgba(204, 0, 0, 0.25);
+	color: var(--red);
+	border: 1px solid var(--red);
+}
+
+.inventory-card-actions {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	border-top: 1px solid #1e1e1e;
+	padding-top: 8px;
+	margin-top: 8px;
+}
+
+.inventory-quick-stock-bar {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.inventory-quick-stock-bar .bench-label {
+	font-size: 0.7rem;
+	color: var(--green);
+	font-weight: bold;
+	letter-spacing: 0.05em;
+}
+
+.inventory-quick-stock-bar .bench-controls {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.inventory-stock-btn {
+	background-color: #2a2a2a;
+	color: var(--golden-orange);
+	border: 1px solid #444;
+	font-weight: bold;
+	font-size: 0.9rem;
+	width: 26px;
+	height: 24px;
+	border-radius: 3px;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: all 0.15s;
+}
+
+.inventory-stock-btn:hover {
+	background-color: var(--orange);
+	color: #000;
+	border-color: var(--orange);
+}
+
+.inventory-stock-count-display {
+	font-size: 0.9rem;
+	font-weight: bold;
+	color: var(--golden-orange);
+	cursor: pointer;
+	padding: 1px 5px;
+	border-bottom: 1px dashed var(--orange);
+}
+
+.inventory-card-buttons-row {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+}
+
+.inventory-action-btn {
+	padding: 4px 9px;
+	font-size: 0.72rem;
+	font-weight: bold;
+	text-transform: uppercase;
+	border: none;
+	border-radius: 3px;
+	cursor: pointer;
+	transition: all 0.15s;
+	text-decoration: none;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.inventory-btn-specs {
+	background-color: var(--african-violet);
+	color: #000;
+}
+
+.inventory-btn-specs:hover {
+	background-color: var(--almond);
+}
+
+.inventory-btn-edit {
+	background-color: #222;
+	color: var(--almond);
+}
+
+.inventory-btn-edit:hover {
+	background-color: var(--almond);
+	color: #000;
+}
+
+.inventory-btn-del {
+	background-color: #222;
+	color: var(--red);
+	margin-left: auto;
+}
+
+.inventory-btn-del:hover {
+	background-color: var(--red);
+	color: #fff;
+}
+
+/* Modal Wide Layout & Form */
+.inventory-modal-wide {
+	max-width: 580px !important;
+	width: 92vw !important;
+}
+
+.inventory-form-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 10px;
+	margin-top: 8px;
+}
+
+.inventory-form-group {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.inventory-form-group.full-width {
+	grid-column: 1 / -1;
+}
+
+.inventory-form-group label {
+	font-size: 0.75rem;
+	font-weight: bold;
+	color: var(--green);
+	letter-spacing: 0.05em;
+}
+
+/* Scaled LCARS Spec Sheet for Detail Modal */
+.inventory-spec-sheet {
+	background-color: #0d0d0d;
+	border: 1px solid #282828;
+	border-left: 6px solid var(--orange);
+	border-radius: 4px;
+	margin-bottom: 12px;
+	overflow: hidden;
+}
+
+.inventory-spec-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 7px 12px;
+	border-bottom: 1px solid #1a1a1a;
+	font-size: 0.88rem;
+}
+
+.inventory-spec-row:last-child {
+	border-bottom: none;
+}
+
+.inventory-spec-row:nth-child(even) {
+	background-color: rgba(255, 255, 255, 0.02);
+}
+
+.inventory-spec-row .spec-label {
+	color: var(--green);
+	font-weight: bold;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	font-size: 0.75rem;
+	flex-shrink: 0;
+	margin-right: 12px;
+}
+
+.inventory-spec-row .spec-value {
+	color: #fff;
+	font-weight: bold;
+	text-align: right;
+	word-break: break-word;
+}
+
+.inventory-detail-header-badges {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+	margin-bottom: 12px;
+}
+
+.inventory-modal-bench-bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	background-color: #121212;
+	border: 1px solid #2a2a2a;
+	border-radius: 4px;
+	padding: 8px 12px;
+	margin-bottom: 12px;
+}
+
+.inventory-modal-bench-bar .bench-label {
+	font-size: 0.75rem;
+	color: var(--green);
+	font-weight: bold;
+	letter-spacing: 0.05em;
+}
+
+.inventory-modal-bench-bar .bench-controls {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.inventory-detail-notes-box {
+	background-color: #101010;
+	border: 1px solid #282828;
+	border-left: 5px solid var(--african-violet);
+	padding: 8px 12px;
+	border-radius: 4px;
+	margin-bottom: 12px;
+}
+
+.inventory-detail-notes-label {
+	font-size: 0.72rem;
+	color: var(--african-violet);
+	font-weight: bold;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	margin-bottom: 3px;
+}
+
+.inventory-detail-notes-text {
+	white-space: pre-wrap;
+	font-size: 0.85rem;
+	color: #ccc;
+	line-height: 1.35;
+	margin: 0;
+}
+
+.inventory-detail-links-bar {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	margin-top: 10px;
+	padding-top: 10px;
+	border-top: 1px solid #222;
+}
+
+.inventory-btn-buy {
+	background-color: var(--african-violet);
+	color: #000;
+}
+
+.inventory-btn-buy:hover {
+	background-color: var(--almond);
+}
+
+.inventory-btn-sheet {
+	background-color: #222;
+	color: var(--golden-orange);
+	border: 1px solid #444;
+}
+
+.inventory-btn-sheet:hover {
+	background-color: var(--golden-orange);
+	color: #000;
+}
+
+@keyframes lcars-pulse {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.45; }
+}
+
+@media (max-width: 768px) {
+	.inventory-form-grid {
+		grid-template-columns: 1fr;
+	}
+	.inventory-toolbar {
+		flex-direction: column;
+		align-items: stretch;
+	}
+	.inventory-toolbar-actions {
+		width: 100%;
+		justify-content: space-between;
+	}
+	.inventory-toolbar-actions .inventory-select {
+		flex: 1;
+	}
 }

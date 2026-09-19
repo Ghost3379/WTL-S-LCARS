@@ -291,7 +291,7 @@ function switchSection(sectionName) {
     }
 
     // Play sound
-    playSoundAndRedirect('audio2', '#');
+    playLcarsAudio('audio2');
 }
 
 // Time & Date Management
@@ -904,6 +904,9 @@ function loadSectionData(section) {
             break;
         case 'projects':
             loadProjects();
+            break;
+        case 'inventory':
+            loadInventory();
             break;
         case 'apps':
             loadAppLauncher();
@@ -2548,6 +2551,7 @@ function lcarsAlert(message) {
         lcarsModalResolve = resolve;
         lcarsModalType = 'alert';
         modal.classList.remove('hidden');
+        playLcarsAudio('sfx-popup');
 
         // Focus OK button
         setTimeout(() => okBtn.focus(), 100);
@@ -2589,6 +2593,7 @@ function lcarsConfirm(message) {
 
         lcarsModalType = 'confirm';
         modal.classList.remove('hidden');
+        playLcarsAudio('sfx-popup');
 
         // Focus YES button
         setTimeout(() => yesBtn.focus(), 100);
@@ -2632,6 +2637,7 @@ function lcarsPrompt(message, defaultValue = '') {
         lcarsModalResolve = resolve;
         lcarsModalType = 'prompt';
         modal.classList.remove('hidden');
+        playLcarsAudio('sfx-popup');
 
         // Focus input
         setTimeout(() => input.focus(), 100);
@@ -2650,6 +2656,7 @@ function lcarsPrompt(message, defaultValue = '') {
 function lcarsModalClose() {
     const modal = document.getElementById('lcars-modal');
     modal.classList.add('hidden');
+    playLcarsAudio('sfx-cancel');
 
     if (lcarsModalResolve && lcarsModalType === 'alert') {
         lcarsModalResolve();
@@ -2870,5 +2877,982 @@ async function applyUpdates(target) {
         await lcarsAlert('Failed to initiate update process.');
     }
 }
+
+// ==========================================
+// COMPONENT STORAGE & INVENTORY CONTROLLER
+// ==========================================
+
+let inventoryCurrentCategory = 'all';
+let inventoryCurrentSearch = '';
+let inventoryCurrentLocation = 'all';
+let inventoryLowStockOnly = false;
+let inventoryData = [];
+let inventoryCategories = [];
+let inventoryLocations = [];
+let inventorySearchDebounceTimer = null;
+
+const RECENT_COMPONENTS_KEY = 'wtl-s-lcars-recent-components';
+
+function getRecentlyViewedComponentIds() {
+    try {
+        const raw = localStorage.getItem(RECENT_COMPONENTS_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function addRecentlyViewedComponent(itemId) {
+    if (!itemId) return;
+    try {
+        let list = getRecentlyViewedComponentIds();
+        list = list.filter(id => id !== itemId);
+        list.unshift(itemId);
+        if (list.length > 8) {
+            list = list.slice(0, 8);
+        }
+        localStorage.setItem(RECENT_COMPONENTS_KEY, JSON.stringify(list));
+    } catch (e) {
+        console.error('Failed to save recent component:', e);
+    }
+}
+
+async function loadInventory() {
+    try {
+        const isStartScreen = (inventoryCurrentCategory === 'all' && !inventoryCurrentSearch && inventoryCurrentLocation === 'all' && !inventoryLowStockOnly);
+
+        const params = new URLSearchParams();
+        if (inventoryCurrentCategory && inventoryCurrentCategory !== 'all') {
+            params.append('category', inventoryCurrentCategory);
+        }
+        if (inventoryCurrentSearch) {
+            params.append('search', inventoryCurrentSearch);
+        }
+        if (inventoryCurrentLocation && inventoryCurrentLocation !== 'all') {
+            params.append('location', inventoryCurrentLocation);
+        }
+        if (inventoryLowStockOnly) {
+            params.append('low_stock', 'true');
+        }
+
+        const url = `/api/inventory?${params.toString()}`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+        const data = await response.json();
+
+        inventoryData = data.items || [];
+        inventoryCategories = data.categories || [];
+
+        // Update summary metrics
+        updateElement('inventory-total-count', data.total_items_count || 0);
+        updateElement('inventory-filtered-count', data.filtered_count || 0);
+
+        let totalStoredQty = 0;
+        if (inventoryData) {
+            totalStoredQty = inventoryData.reduce((acc, item) => acc + (parseInt(item.quantity) || 0), 0);
+        }
+        updateElement('inventory-total-qty', totalStoredQty);
+
+        const lowStockCount = data.low_stock_count || 0;
+        const lowStockEl = document.getElementById('inventory-low-stock-count');
+        if (lowStockEl) {
+            lowStockEl.textContent = lowStockCount;
+            if (lowStockCount > 0) {
+                lowStockEl.className = 'inventory-ribbon-value font-orange blink-slow';
+            } else {
+                lowStockEl.className = 'inventory-ribbon-value font-golden-orange';
+            }
+        }
+
+        const totalVal = data.total_inventory_value || 0;
+        updateElement('inventory-total-value', `${Number(totalVal).toFixed(2)} €`);
+
+        await refreshInventoryLocations();
+
+        // Start Screen vs Filtered Catalog Containers
+        const catContainer = document.getElementById('inventory-categories-container');
+        const activeCatBar = document.getElementById('inventory-active-category-bar');
+        const recentContainer = document.getElementById('inventory-recent-container');
+        const catalogContainer = document.getElementById('inventory-catalog-container');
+
+        if (isStartScreen) {
+            if (catContainer) catContainer.style.display = 'block';
+            if (recentContainer) recentContainer.style.display = 'block';
+            if (activeCatBar) activeCatBar.style.display = 'none';
+            if (catalogContainer) catalogContainer.style.display = 'none';
+
+            await renderCategoryTiles();
+            renderRecentComponents(inventoryData);
+        } else {
+            if (catContainer) catContainer.style.display = 'none';
+            if (recentContainer) recentContainer.style.display = 'none';
+            if (activeCatBar) {
+                activeCatBar.style.display = 'flex';
+                const label = document.getElementById('inventory-active-category-label');
+                if (label) {
+                    let desc = `CATEGORY: ${inventoryCurrentCategory.toUpperCase()}`;
+                    if (inventoryCurrentSearch) {
+                        desc = `SEARCH: "${inventoryCurrentSearch.toUpperCase()}"`;
+                    } else if (inventoryLowStockOnly) {
+                        desc = `LOW STOCK ALERTS`;
+                    } else if (inventoryCurrentLocation !== 'all') {
+                        desc = `LOCATION: ${inventoryCurrentLocation.toUpperCase()}`;
+                    }
+                    label.textContent = `${desc} (${data.filtered_count || 0} ITEMS)`;
+                }
+            }
+            if (catalogContainer) catalogContainer.style.display = 'block';
+
+            renderInventoryCards(inventoryData);
+        }
+
+    } catch (err) {
+        console.error('Failed to load inventory:', err);
+        const grid = document.getElementById('inventory-grid');
+        if (grid) {
+            grid.innerHTML = '<p class="flush uppercase font-red" style="padding: 20px;">FAILED TO RETRIEVE INVENTORY DATA. PLEASE VERIFY BACKEND SERVICE.</p>';
+        }
+    }
+}
+
+async function refreshInventoryLocations() {
+    try {
+        const res = await fetch('/api/inventory/locations');
+        if (res.ok) {
+            inventoryLocations = await res.json();
+            const select = document.getElementById('inventory-location-filter');
+            const datalist = document.getElementById('inv-locations-datalist');
+            
+            if (select) {
+                const currentVal = select.value || 'all';
+                let html = '<option value="all">ALL LOCATIONS</option>';
+                inventoryLocations.forEach(loc => {
+                    const selected = loc === currentVal ? 'selected' : '';
+                    html += `<option value="${escapeHtml(loc)}" ${selected}>${escapeHtml(loc)}</option>`;
+                });
+                select.innerHTML = html;
+            }
+
+            if (datalist) {
+                let dlHtml = '';
+                inventoryLocations.forEach(loc => {
+                    dlHtml += `<option value="${escapeHtml(loc)}">`;
+                });
+                datalist.innerHTML = dlHtml;
+            }
+        }
+    } catch (e) {
+        console.error('Failed to load locations:', e);
+    }
+}
+
+async function renderCategoryTiles() {
+    const grid = document.getElementById('inventory-category-grid');
+    if (!grid) return;
+
+    try {
+        const res = await fetch('/api/inventory/categories');
+        const categories = res.ok ? await res.json() : [];
+
+        if (!categories || categories.length === 0) {
+            grid.innerHTML = '<p style="color: #888; grid-column: 1 / -1; padding: 20px;">NO CATEGORIES AVAILABLE.</p>';
+            return;
+        }
+
+        let html = '';
+        categories.forEach((cat, index) => {
+            const count = cat.count || 0;
+            const code = `CAT-${String(index + 1).padStart(2, '0')}`;
+            html += `
+                <button type="button" class="inventory-category-tile" onclick="selectInventoryCategory('${escapeHtml(cat.name)}')">
+                    <div class="tile-header">
+                        <span class="tile-code">// ${code}</span>
+                        <span class="tile-count">${count} ${count === 1 ? 'PART' : 'PARTS'}</span>
+                    </div>
+                    <div class="tile-title">${escapeHtml(cat.name)}</div>
+                </button>
+            `;
+        });
+
+        grid.innerHTML = html;
+    } catch (e) {
+        console.error('Failed to render category tiles:', e);
+    }
+}
+
+function selectInventoryCategory(category) {
+    inventoryCurrentCategory = category;
+    if (category === 'all') {
+        const input = document.getElementById('inventory-search-input');
+        if (input) input.value = '';
+        inventoryCurrentSearch = '';
+        inventoryLowStockOnly = false;
+        inventoryCurrentLocation = 'all';
+        const locSelect = document.getElementById('inventory-location-filter');
+        if (locSelect) locSelect.value = 'all';
+        const btn = document.getElementById('inventory-low-stock-btn');
+        if (btn) {
+            btn.classList.remove('active');
+            btn.textContent = 'LOW STOCK ONLY';
+        }
+    }
+    playLcarsAudio('audio2');
+    loadInventory();
+}
+
+function onInventorySearchInput() {
+    const input = document.getElementById('inventory-search-input');
+    if (!input) return;
+
+    clearTimeout(inventorySearchDebounceTimer);
+    inventorySearchDebounceTimer = setTimeout(() => {
+        inventoryCurrentSearch = input.value.trim();
+        loadInventory();
+    }, 250);
+}
+
+function clearInventorySearch() {
+    const input = document.getElementById('inventory-search-input');
+    if (input) {
+        input.value = '';
+    }
+    inventoryCurrentSearch = '';
+    playLcarsAudio('sfx-cancel');
+    loadInventory();
+}
+
+function onInventoryLocationChange() {
+    const select = document.getElementById('inventory-location-filter');
+    if (select) {
+        inventoryCurrentLocation = select.value;
+        loadInventory();
+    }
+}
+
+function toggleLowStockFilter() {
+    inventoryLowStockOnly = !inventoryLowStockOnly;
+    const btn = document.getElementById('inventory-low-stock-btn');
+    if (btn) {
+        if (inventoryLowStockOnly) {
+            btn.classList.add('active');
+            btn.textContent = 'SHOW ALL STOCK';
+        } else {
+            btn.classList.remove('active');
+            btn.textContent = 'LOW STOCK ONLY';
+        }
+    }
+    playLcarsAudio('audio2');
+    loadInventory();
+}
+
+function renderRecentComponents(allItems) {
+    const grid = document.getElementById('inventory-recent-grid');
+    if (!grid) return;
+
+    const recentIds = getRecentlyViewedComponentIds();
+    const recentItems = [];
+
+    if (allItems && allItems.length > 0) {
+        recentIds.forEach(id => {
+            const found = allItems.find(item => item.id === id);
+            if (found) recentItems.push(found);
+        });
+        if (recentItems.length !== recentIds.length) {
+            try {
+                localStorage.setItem(RECENT_COMPONENTS_KEY, JSON.stringify(recentItems.map(i => i.id)));
+            } catch (e) {}
+        }
+    } else {
+        try {
+            localStorage.removeItem(RECENT_COMPONENTS_KEY);
+        } catch (e) {}
+    }
+
+    if (recentItems.length === 0) {
+        grid.innerHTML = `
+            <div style="grid-column: 1 / -1; padding: 25px; text-align: center; background-color: #0d0d0d; border: 2px dashed #2a2a2a; border-radius: 4px;">
+                <p class="uppercase font-golden-orange" style="font-size: 1.05rem; margin: 0 0 6px 0; font-weight: bold; letter-spacing: 0.04em;">NO RECENTLY VIEWED COMPONENTS</p>
+                <p style="color: #888; font-size: 0.9rem; margin: 0;">Select any category above or use the search bar to inspect component specifications.</p>
+            </div>
+        `;
+        return;
+    }
+
+    grid.innerHTML = recentItems.map(item => renderComponentPreviewCard(item)).join('');
+}
+
+function renderComponentPreviewCard(item) {
+    const qty = parseInt(item.quantity) || 0;
+    const minQty = parseInt(item.min_quantity) || 5;
+
+    let stockBadgeClass = 'in-stock';
+    let stockText = `IN STOCK (${qty})`;
+    if (qty === 0) {
+        stockBadgeClass = 'out-of-stock';
+        stockText = 'OUT OF STOCK (0)';
+    } else if (qty <= minQty) {
+        stockBadgeClass = 'low-stock';
+        stockText = `LOW STOCK (${qty} / MIN ${minQty})`;
+    }
+
+    const valSpan = item.value ? `<span class="inventory-card-val">⚡ ${escapeHtml(item.value)}</span>` : '';
+    const pkgSpan = item.package ? `<span class="inventory-card-pkg">📦 ${escapeHtml(item.package)}</span>` : '';
+    const locSpan = item.location ? `<span class="inventory-card-loc">📍 ${escapeHtml(item.location)}</span>` : '';
+
+    return `
+        <div class="inventory-card" id="card-${item.id}">
+            <div class="inventory-card-top" onclick="openComponentDetailModal('${item.id}')" title="Click to view full component specs & telemetry">
+                <div class="inventory-card-header-row">
+                    <span class="inventory-card-category">${escapeHtml(item.category || 'GENERAL')}</span>
+                    <span class="inventory-stock-badge ${stockBadgeClass}">${stockText}</span>
+                </div>
+                <h3 class="inventory-card-title">${escapeHtml(item.name)}</h3>
+                <div class="inventory-card-meta-row">
+                    ${valSpan}
+                    ${pkgSpan}
+                    ${locSpan}
+                </div>
+            </div>
+
+            <div class="inventory-card-actions">
+                <div class="inventory-quick-stock-bar">
+                    <span class="bench-label">BENCH:</span>
+                    <div class="bench-controls">
+                        <button type="button" class="inventory-stock-btn" onclick="adjustComponentStock('${item.id}', -1)" title="Take 1 part">-</button>
+                        <span class="inventory-stock-count-display" id="qty-${item.id}" onclick="promptSetComponentStock('${item.id}', ${qty})" title="Click to set custom quantity">${qty}</span>
+                        <button type="button" class="inventory-stock-btn" onclick="adjustComponentStock('${item.id}', 1)" title="Add 1 part">+</button>
+                    </div>
+                </div>
+
+                <div class="inventory-card-buttons-row">
+                    <button type="button" class="inventory-action-btn inventory-btn-edit" onclick="openComponentModal('${item.id}')">EDIT</button>
+                    <button type="button" class="inventory-action-btn inventory-btn-del" onclick="deleteComponent('${item.id}', '${escapeHtml(item.name)}')">DEL</button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderInventoryCards(items) {
+    const grid = document.getElementById('inventory-grid');
+    if (!grid) return;
+
+    if (!items || items.length === 0) {
+        grid.innerHTML = `
+            <div style="grid-column: 1 / -1; padding: 35px; text-align: center; background-color: #0d0d0d; border: 2px dashed #333; border-radius: 4px;">
+                <p class="uppercase go-big font-golden-orange" style="margin: 0 0 8px 0; font-weight: bold;">NO COMPONENTS FOUND</p>
+                <p style="color: #888; font-size: 1rem; margin: 0 0 16px 0;">No electronic parts match the current query or filter criteria.</p>
+                <button type="button" onclick="openComponentModal()" class="button-almond">+ ADD FIRST COMPONENT</button>
+            </div>
+        `;
+        return;
+    }
+
+    grid.innerHTML = items.map(item => renderComponentPreviewCard(item)).join('');
+}
+
+function openComponentDetailModal(itemId) {
+    if (!itemId) return;
+    const item = inventoryData.find(i => i.id === itemId);
+    if (!item) return;
+
+    addRecentlyViewedComponent(itemId);
+    playLcarsAudio('sfx-popup');
+
+    const modal = document.getElementById('component-detail-modal');
+    if (!modal) return;
+
+    const titleEl = document.getElementById('component-detail-title');
+    if (titleEl) {
+        titleEl.textContent = item.name.toUpperCase();
+    }
+
+    const qty = parseInt(item.quantity) || 0;
+    const minQty = parseInt(item.min_quantity) || 5;
+    const price = parseFloat(item.price) || 0.0;
+    const totalPrice = (qty * price).toFixed(2);
+
+    let stockBadgeClass = 'in-stock';
+    let stockText = `IN STOCK (${qty})`;
+    if (qty === 0) {
+        stockBadgeClass = 'out-of-stock';
+        stockText = 'OUT OF STOCK (0)';
+    } else if (qty <= minQty) {
+        stockBadgeClass = 'low-stock';
+        stockText = `LOW STOCK (${qty} / MIN ${minQty})`;
+    }
+
+    const locationBadge = item.location ? `<span class="inventory-location-badge">📍 ${escapeHtml(item.location)}</span>` : '';
+
+    let linksHtml = '';
+    if (item.purchase_url) {
+        linksHtml += `<a href="${escapeHtml(item.purchase_url)}" target="_blank" rel="noopener noreferrer" class="inventory-action-btn inventory-btn-buy" style="font-size: 0.8rem; padding: 6px 12px;">STORE / SUPPLIER ↗</a>`;
+    }
+    if (item.datasheet_url) {
+        linksHtml += `<a href="${escapeHtml(item.datasheet_url)}" target="_blank" rel="noopener noreferrer" class="inventory-action-btn inventory-btn-sheet" style="font-size: 0.8rem; padding: 6px 12px;">DATASHEET PDF ↗</a>`;
+    }
+
+    const bodyEl = document.getElementById('component-detail-body');
+    if (bodyEl) {
+        bodyEl.innerHTML = `
+            <div class="inventory-detail-header-badges">
+                <span class="inventory-card-category" style="font-size: 0.82rem; color: var(--golden-orange);">${escapeHtml(item.category || 'GENERAL')}</span>
+                <span class="inventory-stock-badge ${stockBadgeClass}" id="detail-badge-${item.id}">${stockText}</span>
+                ${locationBadge}
+            </div>
+
+            <!-- Scaled Key-Value Spec Sheet -->
+            <div class="inventory-spec-sheet">
+                <div class="inventory-spec-row">
+                    <span class="spec-label">Value / Rating:</span>
+                    <span class="spec-value font-golden-orange">${escapeHtml(item.value || 'N/A')}</span>
+                </div>
+                <div class="inventory-spec-row">
+                    <span class="spec-label">Package / Footprint:</span>
+                    <span class="spec-value">${escapeHtml(item.package || 'N/A')}</span>
+                </div>
+                <div class="inventory-spec-row">
+                    <span class="spec-label">Storage Location:</span>
+                    <span class="spec-value font-almond">${escapeHtml(item.location || 'Unassigned')}</span>
+                </div>
+                <div class="inventory-spec-row">
+                    <span class="spec-label">Stock on Hand:</span>
+                    <span class="spec-value" id="detail-qty-${item.id}">${qty} <span style="font-size: 0.78rem; color: #888; font-weight: normal;">(Min: ${minQty})</span></span>
+                </div>
+                <div class="inventory-spec-row">
+                    <span class="spec-label">Unit Price:</span>
+                    <span class="spec-value">${price > 0 ? `${price.toFixed(3)} €` : '0.00 €'}</span>
+                </div>
+                <div class="inventory-spec-row">
+                    <span class="spec-label">Est. Total Value:</span>
+                    <span class="spec-value font-golden-orange">${totalPrice} €</span>
+                </div>
+                <div class="inventory-spec-row">
+                    <span class="spec-label">Manufacturer:</span>
+                    <span class="spec-value">${escapeHtml(item.manufacturer || 'Unspecified')}</span>
+                </div>
+                <div class="inventory-spec-row">
+                    <span class="spec-label">Manufacturer Part # (MPN):</span>
+                    <span class="spec-value font-african-violet">${escapeHtml(item.mpn || 'N/A')}</span>
+                </div>
+            </div>
+
+            <!-- Compact Bench Stock inside Modal -->
+            <div class="inventory-modal-bench-bar">
+                <span class="bench-label">BENCH STOCK ADJUSTMENT:</span>
+                <div class="bench-controls">
+                    <button type="button" class="inventory-stock-btn" onclick="adjustComponentStock('${item.id}', -1)" title="Take 1 part">-</button>
+                    <span class="inventory-stock-count-display" id="modal-qty-${item.id}" onclick="promptSetComponentStock('${item.id}', ${qty})" title="Click to set custom quantity">${qty}</span>
+                    <button type="button" class="inventory-stock-btn" onclick="adjustComponentStock('${item.id}', 1)" title="Add 1 part">+</button>
+                    <button type="button" class="inventory-stock-btn" style="width: auto; padding: 0 8px; font-size: 0.8rem;" onclick="adjustComponentStock('${item.id}', 10)" title="Add 10 parts">+10</button>
+                </div>
+            </div>
+
+            ${item.notes ? `
+                <div class="inventory-detail-notes-box">
+                    <div class="inventory-detail-notes-label">Description & Application Notes</div>
+                    <p class="inventory-detail-notes-text">${escapeHtml(item.notes)}</p>
+                </div>
+            ` : ''}
+
+            ${linksHtml ? `
+                <div class="inventory-detail-links-bar" style="margin-top: 8px;">
+                    ${linksHtml}
+                </div>
+            ` : ''}
+        `;
+    }
+
+    const editBtn = document.getElementById('component-detail-edit-btn');
+    if (editBtn) {
+        editBtn.onclick = () => {
+            closeComponentDetailModal();
+            openComponentModal(itemId);
+        };
+    }
+
+    modal.classList.remove('hidden');
+}
+
+function closeComponentDetailModal() {
+    const modal = document.getElementById('component-detail-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        playLcarsAudio('sfx-cancel');
+    }
+    // If on start screen, refresh recently viewed items
+    if (inventoryCurrentCategory === 'all' && !inventoryCurrentSearch) {
+        renderRecentComponents(inventoryData);
+    }
+}
+
+async function adjustComponentStock(itemId, delta) {
+    try {
+        playLcarsAudio('audio3');
+        const res = await fetch(`/api/inventory/${itemId}/stock`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ delta: delta })
+        });
+        if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+        const data = await res.json();
+        
+        // Update cached item
+        const item = inventoryData.find(i => i.id === itemId);
+        if (item) {
+            item.quantity = data.quantity;
+        }
+
+        // Instant in-place visual update on count display
+        const countEl = document.getElementById(`qty-${itemId}`);
+        if (countEl) {
+            countEl.textContent = data.quantity;
+        }
+
+        // Instant update in modal if open
+        const modalCountEl = document.getElementById(`modal-qty-${itemId}`);
+        if (modalCountEl) {
+            modalCountEl.textContent = data.quantity;
+        }
+        const detailQtyEl = document.getElementById(`detail-qty-${itemId}`);
+        if (detailQtyEl) {
+            detailQtyEl.innerHTML = `${data.quantity} <span style="font-size: 0.85rem; color: #888;">(Min: ${item ? item.min_quantity : 5})</span>`;
+        }
+
+        // Update card badge in place
+        const card = document.getElementById(`card-${itemId}`);
+        if (card && item) {
+            const badge = card.querySelector('.inventory-stock-badge');
+            if (badge) {
+                const qty = data.quantity;
+                const minQty = parseInt(item.min_quantity) || 5;
+                if (qty === 0) {
+                    badge.className = 'inventory-stock-badge out-of-stock';
+                    badge.textContent = 'OUT OF STOCK (0)';
+                } else if (qty <= minQty) {
+                    badge.className = 'inventory-stock-badge low-stock';
+                    badge.textContent = `LOW STOCK (${qty} / MIN ${minQty})`;
+                } else {
+                    badge.className = 'inventory-stock-badge in-stock';
+                    badge.textContent = `IN STOCK (${qty})`;
+                }
+            }
+        }
+
+        const detailBadge = document.getElementById(`detail-badge-${itemId}`);
+        if (detailBadge && item) {
+            const qty = data.quantity;
+            const minQty = parseInt(item.min_quantity) || 5;
+            if (qty === 0) {
+                detailBadge.className = 'inventory-stock-badge out-of-stock';
+                detailBadge.textContent = 'OUT OF STOCK (0)';
+            } else if (qty <= minQty) {
+                detailBadge.className = 'inventory-stock-badge low-stock';
+                detailBadge.textContent = `LOW STOCK (${qty} / MIN ${minQty})`;
+            } else {
+                detailBadge.className = 'inventory-stock-badge in-stock';
+                detailBadge.textContent = `IN STOCK (${qty})`;
+            }
+        }
+
+        // Update summary metrics in place
+        updateInventorySummaryMetrics();
+    } catch (err) {
+        console.error('Failed to adjust stock:', err);
+        await lcarsAlert('Failed to update stock quantity on server.');
+    }
+}
+
+async function promptSetComponentStock(itemId, currentQty) {
+    const input = await lcarsPrompt('Enter new exact stock count:', currentQty.toString());
+    if (input === null) return;
+    const val = parseInt(input);
+    if (isNaN(val) || val < 0) {
+        await lcarsAlert('Invalid quantity value.');
+        return;
+    }
+
+    try {
+        playLcarsAudio('audio3');
+        const res = await fetch(`/api/inventory/${itemId}/stock`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ quantity: val })
+        });
+        if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+        const data = await res.json();
+        
+        const item = inventoryData.find(i => i.id === itemId);
+        if (item) {
+            item.quantity = data.quantity;
+        }
+
+        const countEl = document.getElementById(`qty-${itemId}`);
+        if (countEl) {
+            countEl.textContent = data.quantity;
+        }
+
+        const modalCountEl = document.getElementById(`modal-qty-${itemId}`);
+        if (modalCountEl) {
+            modalCountEl.textContent = data.quantity;
+        }
+        const detailQtyEl = document.getElementById(`detail-qty-${itemId}`);
+        if (detailQtyEl) {
+            detailQtyEl.innerHTML = `${data.quantity} <span style="font-size: 0.85rem; color: #888;">(Min: ${item ? item.min_quantity : 5})</span>`;
+        }
+
+        const card = document.getElementById(`card-${itemId}`);
+        if (card && item) {
+            const badge = card.querySelector('.inventory-stock-badge');
+            if (badge) {
+                const qty = data.quantity;
+                const minQty = parseInt(item.min_quantity) || 5;
+                if (qty === 0) {
+                    badge.className = 'inventory-stock-badge out-of-stock';
+                    badge.textContent = 'OUT OF STOCK (0)';
+                } else if (qty <= minQty) {
+                    badge.className = 'inventory-stock-badge low-stock';
+                    badge.textContent = `LOW STOCK (${qty} / MIN ${minQty})`;
+                } else {
+                    badge.className = 'inventory-stock-badge in-stock';
+                    badge.textContent = `IN STOCK (${qty})`;
+                }
+            }
+        }
+
+        const detailBadge = document.getElementById(`detail-badge-${itemId}`);
+        if (detailBadge && item) {
+            const qty = data.quantity;
+            const minQty = parseInt(item.min_quantity) || 5;
+            if (qty === 0) {
+                detailBadge.className = 'inventory-stock-badge out-of-stock';
+                detailBadge.textContent = 'OUT OF STOCK (0)';
+            } else if (qty <= minQty) {
+                detailBadge.className = 'inventory-stock-badge low-stock';
+                detailBadge.textContent = `LOW STOCK (${qty} / MIN ${minQty})`;
+            } else {
+                detailBadge.className = 'inventory-stock-badge in-stock';
+                detailBadge.textContent = `IN STOCK (${qty})`;
+            }
+        }
+
+        updateInventorySummaryMetrics();
+    } catch (err) {
+        console.error('Failed to set stock:', err);
+        await lcarsAlert('Failed to set stock quantity.');
+    }
+}
+
+function updateInventorySummaryMetrics() {
+    let totalQty = 0;
+    let lowStockCount = 0;
+    let totalVal = 0.0;
+
+    inventoryData.forEach(item => {
+        const qty = parseInt(item.quantity) || 0;
+        const minQty = parseInt(item.min_quantity) || 5;
+        const price = parseFloat(item.price) || 0.0;
+        totalQty += qty;
+        totalVal += qty * price;
+        if (qty <= minQty) {
+            lowStockCount++;
+        }
+    });
+
+    updateElement('inventory-total-count', inventoryData.length);
+    updateElement('inventory-total-qty', totalQty);
+    updateElement('inventory-total-value', `${Number(totalVal).toFixed(2)} €`);
+    const lowStockEl = document.getElementById('inventory-low-stock-count');
+    if (lowStockEl) {
+        lowStockEl.textContent = lowStockCount;
+        if (lowStockCount > 0) {
+            lowStockEl.className = 'inventory-ribbon-value font-orange blink-slow';
+        } else {
+            lowStockEl.className = 'inventory-ribbon-value font-golden-orange';
+        }
+    }
+}
+
+function openComponentModal(itemId = null) {
+    const modal = document.getElementById('inventory-modal');
+    if (!modal) return;
+
+    const titleEl = document.getElementById('inventory-modal-title');
+    const idInput = document.getElementById('inv-item-id');
+    const form = document.getElementById('inventory-component-form');
+    if (form) form.reset();
+
+    // Populate categories in modal dropdown
+    const catSelect = document.getElementById('inv-category');
+    if (catSelect && inventoryCategories && inventoryCategories.length > 0) {
+        let catOptions = '';
+        inventoryCategories.forEach(cat => {
+            catOptions += `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`;
+        });
+        catSelect.innerHTML = catOptions;
+    }
+
+    if (itemId) {
+        // Edit Mode
+        const item = inventoryData.find(i => i.id === itemId);
+        if (!item) return;
+
+        titleEl.textContent = `EDIT: ${item.name.toUpperCase()}`;
+        idInput.value = item.id;
+        document.getElementById('inv-name').value = item.name || '';
+        document.getElementById('inv-category').value = item.category || 'Other';
+        document.getElementById('inv-value').value = item.value || '';
+        document.getElementById('inv-package').value = item.package || '';
+        document.getElementById('inv-location').value = item.location || '';
+        document.getElementById('inv-quantity').value = item.quantity ?? 0;
+        document.getElementById('inv-min-quantity').value = item.min_quantity ?? 5;
+        document.getElementById('inv-price').value = item.price ?? 0.00;
+        document.getElementById('inv-manufacturer').value = item.manufacturer || '';
+        document.getElementById('inv-mpn').value = item.mpn || '';
+        document.getElementById('inv-purchase-url').value = item.purchase_url || '';
+        document.getElementById('inv-datasheet-url').value = item.datasheet_url || '';
+        document.getElementById('inv-notes').value = item.notes || '';
+    } else {
+        // Create Mode
+        titleEl.textContent = 'NEW COMPONENT SPECIFICATION';
+        idInput.value = '';
+        document.getElementById('inv-quantity').value = 0;
+        document.getElementById('inv-min-quantity').value = 5;
+        document.getElementById('inv-price').value = 0.00;
+    }
+
+    modal.classList.remove('hidden');
+    playLcarsAudio('sfx-popup');
+    setTimeout(() => {
+        const nameInput = document.getElementById('inv-name');
+        if (nameInput) nameInput.focus();
+    }, 100);
+}
+
+function closeComponentModal() {
+    const modal = document.getElementById('inventory-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        playLcarsAudio('sfx-cancel');
+    }
+}
+
+async function saveComponentForm() {
+    const idInput = document.getElementById('inv-item-id');
+    const itemId = idInput ? idInput.value.trim() : '';
+
+    const name = document.getElementById('inv-name').value.trim();
+    if (!name) {
+        await lcarsAlert('Component name is required.');
+        return;
+    }
+
+    const payload = {
+        name: name,
+        category: document.getElementById('inv-category').value.trim() || 'Other',
+        value: document.getElementById('inv-value').value.trim(),
+        package: document.getElementById('inv-package').value.trim(),
+        location: document.getElementById('inv-location').value.trim(),
+        quantity: parseInt(document.getElementById('inv-quantity').value) || 0,
+        min_quantity: parseInt(document.getElementById('inv-min-quantity').value) || 0,
+        price: parseFloat(document.getElementById('inv-price').value) || 0.0,
+        manufacturer: document.getElementById('inv-manufacturer').value.trim(),
+        mpn: document.getElementById('inv-mpn').value.trim(),
+        purchase_url: document.getElementById('inv-purchase-url').value.trim(),
+        datasheet_url: document.getElementById('inv-datasheet-url').value.trim(),
+        notes: document.getElementById('inv-notes').value.trim()
+    };
+
+    try {
+        let res;
+        if (itemId) {
+            res = await fetch(`/api/inventory/${itemId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        } else {
+            res = await fetch('/api/inventory', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        }
+
+        if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.error || `HTTP ${res.status}`);
+        }
+
+        closeComponentModal();
+        playLcarsAudio('audio4');
+        await loadInventory();
+    } catch (err) {
+        console.error('Failed to save component:', err);
+        await lcarsAlert(`Failed to save component: ${err.message}`);
+    }
+}
+
+async function deleteComponent(itemId, itemName) {
+    const confirmed = await lcarsConfirm(`Are you sure you want to delete component "${itemName}" from inventory?`);
+    if (!confirmed) return;
+
+    try {
+        playLcarsAudio('sfx-cancel');
+        const res = await fetch(`/api/inventory/${itemId}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        await loadInventory();
+    } catch (err) {
+        console.error('Failed to delete component:', err);
+        await lcarsAlert('Failed to delete component.');
+    }
+}
+
+function exportInventoryJSON() {
+    playLcarsAudio('audio2');
+    window.location.href = '/api/inventory/export';
+}
+
+function triggerImportInventory() {
+    const fileInput = document.getElementById('inventory-import-file');
+    if (fileInput) {
+        fileInput.value = '';
+        fileInput.click();
+    }
+}
+
+async function handleInventoryImport(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+        const text = await file.text();
+        const json = JSON.parse(text);
+
+        if (!json.items || !Array.isArray(json.items)) {
+            await lcarsAlert('Invalid inventory backup format: missing items list.');
+            return;
+        }
+
+        const merge = await lcarsConfirm(`Import ${json.items.length} items. Merge with existing items? (Cancel will overwrite current inventory)`);
+        const mode = merge ? 'merge' : 'replace';
+
+        const res = await fetch(`/api/inventory/import?mode=${mode}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(json)
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || `HTTP ${res.status}`);
+        }
+
+        await lcarsAlert(`Inventory imported successfully (${json.items.length} items processed).`);
+        await loadInventory();
+    } catch (err) {
+        console.error('Import failed:', err);
+        await lcarsAlert(`Import failed: ${err.message}`);
+    }
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function toggleInventoryTools() {
+    const drawer = document.getElementById('inventory-tools-drawer');
+    const btn = document.getElementById('inventory-tools-toggle-btn');
+    if (!drawer) return;
+    
+    playLcarsAudio('audio2');
+    const isHidden = drawer.style.display === 'none' || !drawer.style.display;
+    if (isHidden) {
+        drawer.style.display = 'flex';
+        if (btn) {
+            btn.textContent = 'TOOLS ▴';
+            btn.classList.add('active');
+        }
+    } else {
+        drawer.style.display = 'none';
+        if (btn) {
+            btn.textContent = 'TOOLS ▾';
+            btn.classList.remove('active');
+        }
+    }
+}
+
+async function openInLibreOfficeCalc() {
+    try {
+        playSoundAndRedirect('audio2');
+        const res = await fetch('/api/inventory/open-calc', { method: 'POST' });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || `HTTP ${res.status}`);
+        }
+        await lcarsAlert('LibreOffice Calc launched with component inventory spreadsheet.');
+    } catch (err) {
+        console.error('Failed to open LibreOffice Calc:', err);
+        await lcarsAlert(`Failed to launch LibreOffice Calc: ${err.message}`);
+    }
+}
+
+function downloadSpreadsheetODS() {
+    playSoundAndRedirect('audio2');
+    window.location.href = '/api/inventory/spreadsheet?format=ods';
+}
+
+async function openLibreOfficeCalc() {
+    try {
+        playSoundAndRedirect('audio2');
+        const res = await fetch('/api/apps/libreoffice-calc', { method: 'POST' });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || `HTTP ${res.status}`);
+        }
+    } catch (err) {
+        console.error('Failed to open LibreOffice Calc:', err);
+        await lcarsAlert(`Failed to open LibreOffice Calc: ${err.message}`);
+    }
+}
+
+async function openLibreOfficeWriter() {
+    try {
+        playSoundAndRedirect('audio2');
+        const res = await fetch('/api/apps/libreoffice-writer', { method: 'POST' });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || `HTTP ${res.status}`);
+        }
+    } catch (err) {
+        console.error('Failed to open LibreOffice Writer:', err);
+        await lcarsAlert(`Failed to open LibreOffice Writer: ${err.message}`);
+    }
+}
+
+async function openLibreOfficeImpress() {
+    try {
+        playSoundAndRedirect('audio2');
+        const res = await fetch('/api/apps/libreoffice-impress', { method: 'POST' });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || `HTTP ${res.status}`);
+        }
+    } catch (err) {
+        console.error('Failed to open LibreOffice Impress:', err);
+        await lcarsAlert(`Failed to open LibreOffice Impress: ${err.message}`);
+    }
+}
+
+
+
 
 

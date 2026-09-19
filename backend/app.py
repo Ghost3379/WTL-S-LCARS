@@ -10,7 +10,7 @@ import os
 import sys
 
 # Import API route modules
-from api import system, printer, pironman, projects, minecraft, apps, music, servers, network
+from api import system, printer, pironman, projects, minecraft, apps, music, servers, network, inventory
 
 app = Flask(__name__, static_folder='../', static_url_path='')
 CORS(app)  # Enable CORS for all routes
@@ -20,6 +20,7 @@ app.register_blueprint(system.bp, url_prefix='/api/system')
 app.register_blueprint(printer.bp, url_prefix='/api/printer')
 app.register_blueprint(pironman.bp, url_prefix='/api/pironman')
 app.register_blueprint(projects.bp, url_prefix='/api/projects')
+app.register_blueprint(inventory.bp, url_prefix='/api/inventory')
 app.register_blueprint(minecraft.bp, url_prefix='/api/minecraft')
 app.register_blueprint(apps.bp, url_prefix='/api/apps')
 app.register_blueprint(music.bp, url_prefix='/api/music')
